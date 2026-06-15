@@ -1,0 +1,23 @@
+.delivery-page {
+    padding: 60px 0;
+    background: #fff;
+}
+
+.delivery-page .delivery-hero {
+    text-align: center;
+    max-width: 720px;
+    margin: 0 auto 48px;
+}
+
+.delivery-page .delivery-hero h1 {
+    font-size: 2.5em;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 20px;
+}
+
+.delivery-page .delivery-hero p {
+    font-size: 1.05em;
+    color: #555;
+    line-height: 1.8;
+}

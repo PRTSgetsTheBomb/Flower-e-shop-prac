@@ -1,0 +1,19 @@
+.search-page {
+  padding: 40px 0;
+  min-height: 300px;
+}
+
+.search-title {
+  text-align: center;
+  font-size: 1.6em;
+  font-weight: 700;
+  margin-bottom: 32px;
+  color: #222;
+}
+
+.search-empty {
+  text-align: center;
+  color: #999;
+  font-size: 1.05em;
+  padding: 40px 0;
+}

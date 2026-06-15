@@ -1,0 +1,46 @@
+.about-page {
+    padding: 60px 0;
+    background: #fff;
+}
+
+.about-title {
+    text-align: left;
+    font-size: 3em;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 32px;
+}
+
+.about-divider {
+    position: relative;
+    text-align: left;
+    margin: 0 0 12px;
+    padding: 0;
+}
+
+.about-subtitle {
+    font-size: 1.3em;
+    font-weight: 600;
+    color: #222;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.about-content {
+    max-width: 780px;
+}
+
+.about-content p {
+    font-size: 1.15em;
+    color: #555;
+    line-height: 1.8;
+    margin-bottom: 20px;
+}
+
+.about-subsection {
+    font-size: 1.15em;
+    font-weight: 600;
+    color: #222;
+    margin: 0 0 12px;
+}

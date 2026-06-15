@@ -1,0 +1,48 @@
+.category-section {
+    margin-bottom: 50px;
+}
+
+.section-title {
+    text-align: center;
+    font-size: 1.8em;
+    margin-bottom: 24px;
+}
+
+/* 首页精选：4 列网格展示 8 个商品（4×2=8），超过的部分隐藏
+ * 不直接用 JS 截取前 8 个而是用 CSS 隐藏，数据变化时更灵活
+ * 手机端响应式变为 2 列 */
+.product-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--gap);
+}
+
+.category-section .product-grid .product-card:nth-child(n+9) {
+    display: none;
+}
+
+.view-all-wrapper {
+    text-align: center;
+    margin-top: 32px;
+}
+
+.btn-view-all {
+    display: inline-block;
+    background: #000;
+    color: #fff !important;
+    padding: 14px 48px;
+    font-size: 1.1em;
+    font-weight: 600;
+    border-radius: 30px;
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.btn-view-all:hover {
+    opacity: 0.8;
+}
+
+@media (max-width: 600px) {
+    .product-grid {
+        grid-template-columns: repeat(2, 1fr); /* 手机窄屏改为 2 列 */
+    }
+}

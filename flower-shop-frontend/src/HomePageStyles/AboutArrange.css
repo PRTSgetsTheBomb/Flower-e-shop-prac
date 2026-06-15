@@ -1,0 +1,52 @@
+.arrange-section {
+    padding: 40px 0;
+    background: #F7F3EE;
+}
+
+.arrange-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+}
+
+.arrange-card {
+    padding: 0;
+    text-align: center;
+}
+
+.arrange-card h2 {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 16px;
+    line-height: 1.3;
+}
+
+.arrange-card p {
+    font-size: 0.95em;
+    color: #555;
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+
+.arrange-link {
+    display: inline-block;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #222;
+    text-decoration: none;
+    border-bottom: 2px solid #222;
+    padding-bottom: 2px;
+    letter-spacing: 1px;
+    transition: opacity 0.2s;
+}
+
+.arrange-link:hover {
+    opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+    .arrange-grid {
+        grid-template-columns: 1fr;
+    }
+}

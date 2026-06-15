@@ -1,0 +1,662 @@
+.account-page {
+  padding: 60px 0;
+  min-height: 400px;
+}
+
+/* -- Login form styles -- */
+.account-card {
+  max-width: 400px;
+  margin: 0 auto 16px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 36px;
+}
+
+.account-card h1 {
+  text-align: center;
+  font-size: 1.6em;
+  margin-bottom: 24px;
+  color: #222;
+}
+
+.account-card h2 {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+}
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.95em;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+  border-color: var(--color-primary);
+}
+
+/* 密码输入框 + 显隐切换按钮（👁️/🙈）的布局
+ * 按钮用 absolute 定位在输入框右侧，transform 居中 */
+.password-wrapper {
+  position: relative;
+}
+
+.password-wrapper input {
+  padding-right: 40px; /* 给按钮留空间 */
+}
+
+.pwd-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1em;
+  padding: 0;
+  line-height: 1;
+}
+
+.btn-login {
+  width: 100%;
+  padding: 12px;
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-login:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-login:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.form-error {
+  color: #e74c3c;
+  font-size: 0.9em;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.account-footer {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.9em;
+  color: #888;
+}
+
+.account-footer a {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.account-footer a:hover {
+  text-decoration: underline;
+}
+
+.demo-hint {
+  text-align: center;
+  font-size: 0.8em;
+  color: #bbb;
+  margin-top: 12px;
+}
+
+/* -- Dashboard styles (logged in) -- */
+.account-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.account-header h1 {
+  font-size: 1.6em;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+}
+
+.account-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1em;
+}
+
+/* 标签页切换：下划线跟随 active 标签
+ * border-bottom + margin-bottom: -2px 让活跃标签的底线覆盖父容器边框
+ * 切换效果用 transition 实现平滑过渡 */
+.account-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #eee;
+  margin-bottom: 24px;
+}
+
+.account-tab {
+  background: none;
+  border: none;
+  padding: 10px 24px;
+  font-size: 1em;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.account-tab.active {
+  color: #222;
+  border-bottom-color: #222;
+  font-weight: 600;
+}
+
+.account-empty {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.account-empty p {
+  color: #999;
+  margin-bottom: 16px;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f5f5f5;
+  gap: 12px;
+}
+
+.profile-row:last-child {
+  border-bottom: none;
+}
+
+.profile-label {
+  font-size: 0.85em;
+  color: #999;
+  min-width: 50px;
+}
+
+.profile-value {
+  flex: 1;
+  font-size: 0.95em;
+  color: #222;
+}
+
+.profile-edit {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ccc;
+  font-size: 1em;
+  padding: 4px;
+  transition: color 0.2s;
+}
+
+.profile-edit:hover {
+  color: var(--color-primary);
+}
+
+/* 编辑名称：输入框 + 按钮组 */
+.profile-edit-wrap {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.profile-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95em;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.profile-input:focus {
+  border-color: var(--color-primary);
+}
+
+.profile-save {
+  padding: 6px 14px;
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85em;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.profile-save:hover {
+  opacity: 0.85;
+}
+
+.profile-cancel {
+  padding: 6px 14px;
+  background: none;
+  color: #888;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.profile-cancel:hover {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.address-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.btn-add {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85em;
+  cursor: pointer;
+  color: #555;
+  transition: border-color 0.2s;
+}
+
+.btn-add:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.address-empty {
+  text-align: center;
+  color: #bbb;
+  font-size: 0.9em;
+  padding: 12px 0;
+  margin: 0;
+}
+
+.account-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.btn-logout {
+  background: #999 !important;
+}
+
+.btn-logout-all {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  color: #888;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.btn-logout-all:hover {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .account-page {
+    padding: 32px 0;
+  }
+
+  .account-header h1 {
+    font-size: 1.3em;
+  }
+
+  .account-card {
+    padding: 24px 20px;
+  }
+
+  .account-tab {
+    padding: 8px 16px;
+    font-size: 0.9em;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .profile-row {
+    flex-wrap: wrap;
+  }
+
+  .profile-edit-wrap {
+    flex-wrap: wrap;
+  }
+
+  .address-form-card {
+    padding: 20px;
+    width: 95%;
+  }
+}
+
+@media (max-width: 480px) {
+  .account-card {
+    padding: 16px;
+  }
+
+  .account-tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+    font-size: 0.85em;
+  }
+
+  .address-card {
+    padding: 12px;
+  }
+
+  .address-form-card {
+    padding: 16px;
+  }
+}
+
+/* -- Address list styles -- */
+.address-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.address-card {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 16px;
+  transition: border-color 0.2s;
+}
+
+.address-card:hover {
+  border-color: #ddd;
+}
+
+.address-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.address-label {
+  font-size: 0.85em;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.address-delete {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.address-delete:hover {
+  color: #e74c3c;
+  background: #fef2f2;
+}
+
+.address-detail {
+  margin: 2px 0;
+  font-size: 0.9em;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* -- Address form overlay -- */
+.address-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.address-form-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px;
+  width: 90%;
+  max-width: 460px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.address-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.address-form-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 700;
+  color: #222;
+}
+
+.address-form-close {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  color: #aaa;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.address-form-close:hover {
+  color: #e74c3c;
+  background: #fef2f2;
+}
+
+.address-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.address-form-body .form-group {
+  margin-bottom: 0;
+}
+
+.address-form-body select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.95em;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.address-form-body select:focus {
+  border-color: var(--color-primary);
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.address-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.account-footer a:hover {
+  text-decoration: underline;
+}
+
+/* -- Orders list (logged in) -- */
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.order-card {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.order-id {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #888;
+}
+
+.order-status {
+  font-size: 0.8em;
+  font-weight: 600;
+  color: #2ecc71;
+  background: #eafaf1;
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+
+.order-date {
+  font-size: 0.8em;
+  color: #bbb;
+  margin: 0 0 12px;
+}
+
+.order-items {
+  border-top: 1px solid #f5f5f5;
+  padding-top: 10px;
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.order-item img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.order-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-item-name {
+  display: block;
+  font-size: 0.9em;
+  color: #333;
+}
+
+.order-item-qty {
+  font-size: 0.8em;
+  color: #999;
+}
+
+.order-item-price {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #222;
+  flex-shrink: 0;
+}
+
+.order-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  margin-top: 6px;
+  border-top: 1px solid #eee;
+  font-size: 0.95em;
+  color: #222;
+}
+
+.order-delivery {
+  font-size: 0.8em;
+  color: #999;
+  margin: 8px 0 0;
+}

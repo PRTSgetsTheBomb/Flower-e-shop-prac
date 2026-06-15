@@ -1,0 +1,278 @@
+.cart-page {
+  padding: 40px 0;
+  min-height: 300px;
+}
+
+.cart-title {
+  text-align: center;
+  font-size: 1.8em;
+  font-weight: 700;
+  margin-bottom: 32px;
+  color: #222;
+}
+
+.cart-empty {
+  text-align: center;
+  color: #999;
+  font-size: 1.05em;
+  margin-bottom: 24px;
+}
+
+.cart-continue {
+  text-align: center;
+}
+
+.cart-items {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.cart-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.cart-item-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.cart-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cart-item-name {
+  font-weight: 600;
+  color: #222;
+  text-decoration: none;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.cart-item-name:hover {
+  text-decoration: underline;
+}
+
+.cart-item-price {
+  font-size: 0.9em;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.cart-item-date {
+  font-size: 0.8em;
+  color: #999;
+  margin: 4px 0 0;
+}
+
+.cart-item-qty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.cart-item-qty button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1em;
+  padding: 2px 6px;
+  color: #555;
+}
+
+.cart-item-qty button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.cart-item-qty span {
+  min-width: 20px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.cart-item-total {
+  font-weight: 700;
+  font-size: 1.05em;
+  color: #222;
+  min-width: 60px;
+  text-align: right;
+  margin: 0;
+}
+
+.cart-item-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ccc;
+  font-size: 1em;
+  padding: 4px;
+  transition: color 0.2s;
+}
+
+.cart-item-remove:hover {
+  color: #e74c3c;
+}
+
+.cart-footer {
+  max-width: 700px;
+  margin: 24px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.btn-clear {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: #666;
+  transition: border-color 0.2s;
+}
+
+.btn-clear:hover {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.cart-total {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 1.1em;
+}
+
+.cart-total strong {
+  font-size: 1.3em;
+  color: #222;
+}
+
+.btn-checkout {
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 32px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-checkout:hover {
+  opacity: 0.85;
+}
+
+/* -- 推荐商品区域 -- */
+.cart-recommended {
+  margin-top: 60px;
+  padding-top: 40px;
+  border-top: 1px solid #eee;
+}
+
+.cart-rec-title {
+  font-size: 1.3em;
+  font-weight: 700;
+  color: #222;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .cart-page {
+    padding: 24px 0;
+  }
+
+  .cart-title {
+    font-size: 1.4em;
+    margin-bottom: 24px;
+  }
+
+  .cart-item {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .cart-item-image {
+    width: 64px;
+    height: 64px;
+  }
+
+  .cart-item-info {
+    min-width: calc(100% - 80px);
+  }
+
+  .cart-item-total {
+    min-width: auto;
+    margin-left: auto;
+  }
+
+  .cart-footer {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .cart-total {
+    justify-content: center;
+  }
+
+  .btn-checkout {
+    width: 100%;
+  }
+
+  .btn-clear {
+    width: 100%;
+    text-align: center;
+  }
+
+  .cart-recommended {
+    margin-top: 40px;
+    padding-top: 24px;
+  }
+
+  .cart-rec-title {
+    font-size: 1.1em;
+  }
+}
+
+@media (max-width: 480px) {
+  .cart-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cart-item-image {
+    width: 100%;
+    height: 180px;
+  }
+
+  .cart-item-info {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .cart-item-qty {
+    align-self: flex-start;
+  }
+
+  .cart-item-total {
+    align-self: flex-end;
+  }
+}

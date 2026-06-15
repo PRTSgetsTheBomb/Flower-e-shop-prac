@@ -1,10 +1,19 @@
+/**
+ * 最受欢迎商品展示（Favorite / LocalLoved）
+ *
+ * 展示两个主打品类：Fresh Flower Bouquets 和 Dried & Preserved Flowers。
+ * 每个品类用大图 + 覆盖层文字 + "SHOP" 按钮组成。
+ * 左侧主图（大）+ 右侧副图（小），形成视觉层次感。
+ */
+
 import React from 'react';
 import { Link } from 'react-router-dom';
-import './Favorite.css';
+import FadeInUp from '../Generic/FadeInUp';
+import '../../HomePageStyles/LocalLoved.css';
 
-function Favorite() {
+function LocalLoved() {
     return (
-        <section className="favorite-section">
+        <FadeInUp as="section" className="favorite-section">
             <div className="container">
                 <h2 className="favorite-title">Shop Our Most Loved Flowers in Melbourne</h2>
 
@@ -41,8 +50,8 @@ function Favorite() {
                     </div>
                 </div>
             </div>
-        </section>
+        </FadeInUp>
     );
 }
 
-export default Favorite;
+export default LocalLoved;

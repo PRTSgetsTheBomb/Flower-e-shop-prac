@@ -1,0 +1,317 @@
+@import url('https://fonts.googleapis.com/css2?family=Manufacturing+Consent&family=Playwrite+AU+VIC+Guides&family=Pompiere&display=swap');
+
+/*
+ * 导航栏样式
+ * 用 sticky 而非 fixed，隐藏时页面内容自然上移不留下空白
+ * z-index: 100 确保覆盖其他内容
+ */
+.site-header {
+  background: #fff;
+  /* border-bottom removed */
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-inner {
+  padding: 15px 20px;
+}
+
+/* 三栏布局：搜索框(左) | Logo(中) | 账户/购物车图标(右) */
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+
+.search-row {
+  flex: 0 0 220px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 8px 14px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 0.9em;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  border-color: var(--color-primary);
+}
+
+.search-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1em;
+  padding: 4px;
+  transition: opacity 0.2s;
+  line-height: 1;
+}
+
+.search-btn:hover {
+  opacity: 0.6;
+}
+
+.logo-row {
+  flex: 1;
+  text-align: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 16px;
+  flex: 0 0 200px;
+  justify-content: flex-end;
+}
+
+.header-icon {
+  font-size: 1.3em;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.header-icon:hover {
+  opacity: 0.6;
+}
+
+.nav-row {
+  text-align: center;
+}
+
+.logo {
+  font-family: "Pompiere", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 3em;
+  color: var(--color-primary) !important;
+}
+
+.main-nav {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+
+.main-nav a,
+.dropdown-toggle {
+  color: var(--color-text);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.main-nav a:hover,
+.dropdown-toggle:hover {
+  color: var(--color-primary);
+}
+
+.main-nav a.active,
+.dropdown-toggle.active {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.main-nav a.active {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.dropdown-toggle.active {
+  text-decoration: none;
+}
+
+.dropdown-toggle.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 1px;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-toggle {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.arrow {
+  display: inline-block;
+  font-size: 1em;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 150px;
+  padding: 8px 0;
+  z-index: 10;
+}
+
+.dropdown-menu a {
+  display: block;
+  padding: 8px 20px;
+  text-align: left;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.dropdown-menu a:hover {
+  background: #f9f9f9;
+  color: var(--color-primary);
+}
+
+.dropdown-menu a.active {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--color-primary);
+}
+
+.cart-link {
+  font-size: 1.2em;
+}
+
+/* ===== 汉堡菜单按钮 (移动端) ===== */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.hamburger-line {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: #333;
+  border-radius: 2px;
+  transition: transform 0.3s, opacity 0.3s;
+}
+
+.hamburger-line.open:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger-line.open:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger-line.open:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ===== 移动端响应式 ===== */
+@media (max-width: 768px) {
+  .search-row {
+    flex: 1;
+  }
+
+  .hamburger {
+    display: flex;
+  }
+
+  .header-actions {
+    flex: 0 0 auto;
+    gap: 10px;
+  }
+
+  .logo {
+    font-size: 2.2em;
+  }
+
+  .nav-row {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease, padding 0.35s ease;
+    padding: 0;
+  }
+
+  .nav-row.open {
+    max-height: 400px;
+    padding: 12px 0 8px;
+  }
+
+  .main-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .main-nav a,
+  .dropdown-toggle {
+    display: block;
+    padding: 12px 0;
+    border-bottom: 1px solid #f5f5f5;
+    text-align: left;
+  }
+
+  .dropdown {
+    display: block;
+  }
+
+  .dropdown-menu {
+    position: static;
+    transform: none;
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+    padding: 0 0 0 16px;
+  }
+
+  .dropdown-menu a {
+    padding: 10px 0;
+    font-size: 0.9em;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-inner {
+    padding: 10px 12px;
+  }
+
+  .header-top {
+    gap: 8px;
+  }
+
+  .search-input {
+    font-size: 0.85em;
+    padding: 6px 10px;
+  }
+
+  .logo {
+    font-size: 1.6em;
+  }
+}

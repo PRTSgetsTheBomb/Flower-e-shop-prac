@@ -1,0 +1,47 @@
+.feedback-section {
+    padding: 60px 0;
+    background: #fff;
+}
+
+.feedback-title {
+    text-align: center;
+    font-size: 2em;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 40px;
+}
+
+.feedback-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+.feedback-card {
+    background: #F7F3EE;
+    border-radius: 12px;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.feedback-text {
+    font-size: 0.95em;
+    color: #444;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    flex: 1;
+}
+
+.feedback-name {
+    Font-family: "Playfair Display", serif;
+    font-size: 1.25em;
+    font-weight: 600;
+    color: #222;
+}
+
+@media (max-width: 768px) {
+    .feedback-grid {
+        grid-template-columns: 1fr;
+    }
+}

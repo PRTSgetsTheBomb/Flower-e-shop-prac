@@ -1,0 +1,213 @@
+.reviews-section {
+  margin-top: 60px;
+  padding-top: 40px;
+  border-top: 1px solid #eee;
+}
+
+.reviews-title {
+  font-size: 1.4em;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 24px;
+}
+
+/* -- 评分摘要 -- */
+.reviews-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.reviews-avg {
+  font-size: 1.8em;
+  font-weight: 700;
+  color: #222;
+}
+
+.reviews-stars,
+.review-stars {
+  font-size: 1.2em;
+  letter-spacing: 2px;
+}
+
+.star-filled {
+  color: #f5a623;
+}
+
+.star-empty {
+  color: #ddd;
+}
+
+.reviews-count {
+  font-size: 0.9em;
+  color: #999;
+}
+
+.reviews-empty {
+  color: #bbb;
+  font-size: 0.95em;
+}
+
+/* -- 评价列表 -- */
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 36px;
+}
+
+.review-card {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.review-author {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: #222;
+}
+
+.review-date {
+  font-size: 0.8em;
+  color: #bbb;
+  margin-left: auto;
+}
+
+.review-text {
+  font-size: 0.9em;
+  color: #555;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* -- 留评表单 -- */
+.review-form {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 28px;
+}
+
+.review-form h3 {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 20px;
+}
+
+.review-rating {
+  margin-bottom: 18px;
+}
+
+.review-rating label {
+  display: block;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.star-input {
+  display: flex;
+  gap: 4px;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  font-size: 1.6em;
+  cursor: pointer;
+  padding: 0;
+  color: #ddd;
+  transition: color 0.15s;
+  line-height: 1;
+}
+
+.star-btn.active {
+  color: #f5a623;
+}
+
+.star-btn:hover {
+  color: #f5a623;
+}
+
+.review-field {
+  margin-bottom: 16px;
+}
+
+.review-field label {
+  display: block;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.review-field textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.95em;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.review-field textarea:focus {
+  border-color: var(--color-primary);
+}
+
+.review-error {
+  color: #e74c3c;
+  font-size: 0.9em;
+  margin-bottom: 12px;
+}
+
+.review-submit {
+  padding: 12px 32px;
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.review-submit:hover {
+  opacity: 0.85;
+}
+
+@media (max-width: 768px) {
+  .reviews-section {
+    margin-top: 40px;
+    padding-top: 24px;
+  }
+
+  .reviews-avg {
+    font-size: 1.4em;
+  }
+
+  .review-form {
+    padding: 20px;
+  }
+
+  .star-btn {
+    font-size: 1.4em;
+  }
+}

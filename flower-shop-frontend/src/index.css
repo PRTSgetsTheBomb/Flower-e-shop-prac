@@ -42,3 +42,28 @@ img {
   height: auto;
   display: block;
 }
+
+/* ===== 全局响应式 ===== */
+
+/* 平板 */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px;
+  }
+}
+
+/* 手机 */
+@media (max-width: 480px) {
+  .container {
+    padding: 0 12px;
+  }
+
+  .section-title {
+    font-size: 1.3em !important;
+  }
+
+  .btn-primary {
+    width: 100%;
+    text-align: center;
+  }
+}

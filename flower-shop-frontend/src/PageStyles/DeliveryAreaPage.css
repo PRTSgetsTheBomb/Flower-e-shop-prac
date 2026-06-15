@@ -1,0 +1,46 @@
+.delivery-page {
+    padding: 60px 0;
+    background: #fff;
+}
+
+.delivery-page .delivery-title {
+    font-size: 3em;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.delivery-page .delivery-desc {
+    font-size: 1.15em;
+    color: #555;
+    line-height: 1.8;
+    max-width: 720px;
+    margin-bottom: 40px;
+}
+
+.delivery-page .delivery-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.delivery-page .delivery-list a {
+    display: block;
+    width: 100%;
+    padding: 10px 20px;
+    font-size: 1.05em;
+    color: #333;
+    text-align: center;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.2s, text-decoration-thickness 0.2s;
+}
+
+.delivery-page .delivery-list a:hover {
+    color: #000;
+    text-decoration-thickness: 2px;
+}
