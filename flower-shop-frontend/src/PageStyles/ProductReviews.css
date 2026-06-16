@@ -211,3 +211,12 @@
     font-size: 1.4em;
   }
 }
+
+/* -- 禁用评价按钮 -- */
+.review-submit-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #ccc !important;
+  color: #888 !important;
+  border-color: #ccc !important;
+}

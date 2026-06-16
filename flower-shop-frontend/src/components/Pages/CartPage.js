@@ -39,6 +39,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import FadeInUp from '../Generic/FadeInUp';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
 import { fetchAllProducts } from '../../api/products';
 import '../../PageStyles/product.css';
 import '../../PageStyles/CartPage.css';
@@ -46,6 +47,7 @@ import '../../PageStyles/CartPage.css';
 function CartPage() {
   // 从 CartContext 解构出购物车数据和操作方法
   const { cart, removeFromCart, updateQty, clearCart, totalPrice } = useCart();
+  const { user } = useAuth();
 
   // 推荐商品
   const [recommended, setRecommended] = useState([]);
@@ -118,7 +120,15 @@ function CartPage() {
             <span>Total</span>
             <strong>${totalPrice.toFixed(2)}</strong>
           </div>
-          <Link to="/checkout" className="btn-checkout">Checkout</Link>
+          {user ? (<Link to="/checkout" className="btn-checkout">Checkout</Link>
+          ) : (
+            <Link to='/account'
+              state={{ from: '/checkout' }}
+              className="btn-checkout"
+            >
+              Login to Checkout
+            </Link>
+          )}
         </div>
 
         {/* 推荐商品 */}
@@ -158,7 +168,7 @@ function CartPage() {
           </section>
         )}
       </div>
-</FadeInUp>
+    </FadeInUp>
   );
 }
 

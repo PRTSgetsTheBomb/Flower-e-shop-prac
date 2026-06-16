@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
 import { useAuth } from '../../context/AuthContext';
 import '../../PageStyles/AccountPage.css';
@@ -14,6 +14,7 @@ import '../../PageStyles/AccountPage.css';
 function SignUpPage() {
   const { register, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +34,7 @@ function SignUpPage() {
     }
     const result = await register(name, email, password);
     if (result.success) {
-      navigate('/account');
+      navigate(location.state?.from || '/account');
     } else {
       setError(result.error);
     }
@@ -68,7 +69,7 @@ function SignUpPage() {
             </button>
           </form>
           <p className="account-footer">
-            Already have an account? <Link to="/account">Sign in</Link>
+            Already have an account? <Link to="/account" state={{ from: location.state?.from }}>Sign in</Link>
           </p>
         </div>
       </div>

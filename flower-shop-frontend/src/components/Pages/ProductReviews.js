@@ -5,7 +5,9 @@
  * 数据以 localStorage 按商品 ID 存储。
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getUserOrders } from '../../utils/orders';
 import '../../PageStyles/ProductReviews.css';
 
 const STORAGE_KEY = 'product_reviews';
@@ -24,11 +26,26 @@ const STAR_O = '☆';
 
 export default function ProductReviews({ productId, productName }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [reviews, setReviews] = useState([]);
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [text, setText] = useState('');
   const [submitMsg, setSubmitMsg] = useState('');
+  const [hasPurchased, setHasPurchased] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setHasPurchased(false);
+      return;
+    }
+    const orders = getUserOrders(user.email);
+    const purchased = orders.some(order =>
+      order.items.some(item => String(item.id) === String(productId))
+    );
+    setHasPurchased(purchased);
+  }, [user, productId])
 
   const refresh = useCallback(() => {
     const all = loadReviews();
@@ -46,7 +63,7 @@ export default function ProductReviews({ productId, productName }) {
     const list = all[productId] || [];
     const newReview = {
       id: Date.now(),
-      author: user?.name || 'Anonymous',
+      author: user?.name,
       rating,
       text: text.trim(),
       date: new Date().toISOString(),
@@ -73,7 +90,7 @@ export default function ProductReviews({ productId, productName }) {
           <>
             <span className="reviews-avg">{avgRating}</span>
             <span className="reviews-stars">
-              {[1,2,3,4,5].map((i) => (
+              {[1, 2, 3, 4, 5].map((i) => (
                 <span key={i} className={i <= Math.round(+avgRating) ? 'star-filled' : 'star-empty'}>{STAR}</span>
               ))}
             </span>
@@ -92,7 +109,7 @@ export default function ProductReviews({ productId, productName }) {
               <div className="review-header">
                 <span className="review-author">{r.author}</span>
                 <span className="review-stars">
-                  {[1,2,3,4,5].map((i) => (
+                  {[1, 2, 3, 4, 5].map((i) => (
                     <span key={i} className={i <= r.rating ? 'star-filled' : 'star-empty'}>{STAR}</span>
                   ))}
                 </span>
@@ -111,7 +128,7 @@ export default function ProductReviews({ productId, productName }) {
         <div className="review-rating">
           <label>Your Rating *</label>
           <div className="star-input">
-            {[1,2,3,4,5].map((i) => (
+            {[1, 2, 3, 4, 5].map((i) => (
               <button
                 key={i}
                 type="button"
@@ -141,7 +158,19 @@ export default function ProductReviews({ productId, productName }) {
 
         {submitMsg && <p className="review-error">{submitMsg}</p>}
 
-        <button type="submit" className="review-submit">Submit Review</button>
+        {user ? (
+          hasPurchased ? (
+            <button type="submit" className="review-submit">Submit Review</button>
+          ) : (
+            <button type="button" className="review-submit review-submit-disabled" disabled>
+              You must purchase this product to review
+            </button>
+          )
+        ) : (
+          <button type="button" className="review-submit" onClick={() => navigate('/account', { state: { from: location.pathname } })}>
+            Login to Review
+          </button>
+        )}
       </form>
     </section>
   );

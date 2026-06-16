@@ -17,7 +17,7 @@
  */
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
 import { useAuth } from '../../context/AuthContext';
 import { getUserOrders } from '../../utils/orders';
@@ -26,6 +26,7 @@ import '../../PageStyles/AccountPage.css';
 function AccountPage() {
     const { user, login, logout, updateProfile, addAddress, removeAddress, loading } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [tab, setTab] = useState('orders');   // 仪表盘标签页: 'orders' | 'profile'
     const [editingName, setEditingName] = useState(false);
     const [newName, setNewName] = useState('');
@@ -248,7 +249,7 @@ function AccountPage() {
         }
         const result = await login(email, password);
         if (result.success) {
-            navigate('/account');
+            navigate(location.state?.from || '/account');
         } else {
             setError(result.error);
         }
@@ -279,7 +280,7 @@ function AccountPage() {
                         </button>
                     </form>
                     <p className="account-footer">
-                        Don't have an account? <Link to="/register">Create one</Link>
+                        Don't have an account? <Link to="/register" state={{ from: location.state?.from }}>Create one</Link>
                     </p>
                     <p className="demo-hint">Use a registered account to sign in.</p>
                 </div>
