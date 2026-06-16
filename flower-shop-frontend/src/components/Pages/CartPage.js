@@ -41,6 +41,7 @@ import FadeInUp from '../Generic/FadeInUp';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { fetchAllProducts } from '../../api/products';
+import ProductCard from '../Pages/ProductDetail';
 import '../../PageStyles/product.css';
 import '../../PageStyles/CartPage.css';
 
@@ -93,7 +94,9 @@ function CartPage() {
                   ${(parseFloat(item.sale_price) || parseFloat(item.price) || 0).toFixed(2)}
                 </p>
                 {item.deliveryDate && (
-                  <p className="cart-item-date">Pickup/Delivery: {item.deliveryDate}</p>
+                  <p className="cart-item-date">
+                    {item.deliveryMethod === 'pickup' ? 'Pickup' : 'Delivery'}: {item.deliveryDate}
+                  </p>
                 )}
               </div>
 

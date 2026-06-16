@@ -109,33 +109,35 @@ function CheckoutPage() {
                             </div>
                         </div>
 
-                        <div className="form-section">
-                            <h2>Delivery</h2>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>First Name *</label>
-                                    <input type="text" name="firstName" value={form.firstName} onChange={handleChange} required />
+                        {cart.some(item => item.deliveryMethod !== 'pickup') && (
+                            <div className="form-section">
+                                <h2>Delivery</h2>
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label>First Name *</label>
+                                        <input type="text" name="firstName" value={form.firstName} onChange={handleChange} required />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Last Name *</label>
+                                        <input type="text" name="lastName" value={form.lastName} onChange={handleChange} required />
+                                    </div>
                                 </div>
-                                <div className="form-group">
-                                    <label>Last Name *</label>
-                                    <input type="text" name="lastName" value={form.lastName} onChange={handleChange} required />
+                                <div className="form-group full">
+                                    <label>Address *</label>
+                                    <input type="text" name="address" value={form.address} onChange={handleChange} required />
+                                </div>
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label>Suburb *</label>
+                                        <input type="text" name="suburb" value={form.suburb} onChange={handleChange} required />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Postcode *</label>
+                                        <input type="text" name="postcode" value={form.postcode} onChange={handleChange} required />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="form-group full">
-                                <label>Address *</label>
-                                <input type="text" name="address" value={form.address} onChange={handleChange} required />
-                            </div>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>Suburb *</label>
-                                    <input type="text" name="suburb" value={form.suburb} onChange={handleChange} required />
-                                </div>
-                                <div className="form-group">
-                                    <label>Postcode *</label>
-                                    <input type="text" name="postcode" value={form.postcode} onChange={handleChange} required />
-                                </div>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* 右侧：订单摘要 */}
@@ -144,6 +146,11 @@ function CheckoutPage() {
                         {cart.map((item) => (
                             <div key={item.id} className="checkout-summary-item">
                                 <span className="cs-name">{item.name}</span>
+                                {item.deliveryDate && (
+                                    <span className='cs-method'>
+                                        {item.deliveryMethod === 'pickup' ? 'Pickup' : 'Delivery'}: {item.deliveryDate}
+                                    </span>
+                                )}
                                 <span className="cs-qty">x{item.qty}</span>
                                 <span className="cs-price">
                                     ${((parseFloat(item.sale_price) || parseFloat(item.price) || 0) * item.qty).toFixed(2)}
