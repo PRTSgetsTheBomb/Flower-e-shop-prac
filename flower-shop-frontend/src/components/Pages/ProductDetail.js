@@ -113,7 +113,9 @@ function ProductDetail() {
         setTimeout(() => setAdded(false), 2000);
     };
 
-    const today = new Date().toISOString().split('T')[0];
+    const minDate = new Date();
+    if (deliveryMethod === 'pickup') minDate.setDate(minDate.getDate() + 1);
+    const minDateStr = minDate.toISOString().split('T')[0];
 
     return (
         <FadeInUp as="section" className="detail-page">
@@ -182,7 +184,7 @@ function ProductDetail() {
 
                             <div className="detail-field">
                                 <label>{deliveryMethod === 'delivery' ? 'Delivery Date' : 'Pickup Date'} *</label>
-                                <input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDateError(''); }} min={today} required />
+                                <input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDateError(''); }} min={minDateStr} required />
                                 {dateError && <span className="field-error">{dateError}</span>}
                             </div>
 
