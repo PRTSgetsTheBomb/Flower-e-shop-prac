@@ -180,3 +180,28 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* -- 已保存地址选择器 -- */
+.saved-address-wrap {
+  margin-bottom: 20px;
+}
+
+.saved-address-wrap label {
+  display: block;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.saved-address-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9em;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+  box-sizing: border-box;
+}

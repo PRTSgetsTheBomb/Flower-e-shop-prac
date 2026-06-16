@@ -19,7 +19,6 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { addOrder } from '../../utils/orders';
 import '../../PageStyles/CheckoutPage.css';
-import { isTemplateMiddleOrTemplateTail } from 'typescript';
 
 const DELIVERY_FEE = 15;
 const TAX_RATE = 0.1;
@@ -170,6 +169,34 @@ function CheckoutPage() {
 
                         {cart.some(item => item.deliveryMethod !== 'pickup') && (
                             <div className="form-section">
+                                {/* 已保存地址快速选择 */}
+                                {user?.addresses?.length > 0 && (
+                                    <div className="form-section">
+                                        <label className="saved-address-label">Saved Addresses</label>
+                                        <select
+                                            className="saved-address-select"
+                                            defaultValue=""
+                                            onChange={(e) => {
+                                                const addr = user.addresses.find(a => a.id === e.target.value);
+                                                if (addr) {
+                                                    setForm(prev => ({
+                                                        ...prev,
+                                                        address: addr.street || '',
+                                                        suburb: addr.suburb || '',
+                                                        postcode: addr.postcode || '',
+                                                    }));
+                                                }
+                                            }}
+                                        >
+                                            <option value="" disabled>Select a saved address...</option>
+                                            {user.addresses.map(addr => (
+                                                <option key={addr.id} value={addr.id}>
+                                                    {addr.label || 'Address'} — {addr.street}, {addr.suburb} {addr.postcode}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                                 <h2>Delivery</h2>
                                 <div className="form-row">
                                     <div className="form-group">
