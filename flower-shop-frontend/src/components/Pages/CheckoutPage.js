@@ -19,6 +19,11 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { addOrder } from '../../utils/orders';
 import '../../PageStyles/CheckoutPage.css';
+import { isTemplateMiddleOrTemplateTail } from 'typescript';
+
+const DELIVERY_FEE = 15;
+const TAX_RATE = 0.1;
+const FREE_SHIPPING_THRESHOLD = 150;
 
 function CheckoutPage() {
     const { cart, totalPrice, clearCart } = useCart();
@@ -27,6 +32,16 @@ function CheckoutPage() {
     const [placed, setPlaced] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [phoneError, setPhoneError] = useState('');
+
+    //计算运费
+    const hasDelivery = cart.some(item => item.deliveryMethod !== 'pickup');
+    const deliverySubtotal = cart
+        .filter(item => item.deliveryMethod !== 'pickup')
+        .reduce((sum, item) => sum + item.qty * (parseFloat(item.sale_price) || parseFloat(item.price) || 0), 0)
+    const shipping = hasDelivery && deliverySubtotal < FREE_SHIPPING_THRESHOLD ? DELIVERY_FEE : 0;
+    const tax = totalPrice * TAX_RATE;
+    const total = totalPrice + shipping + tax;
+
 
     const validatePhone = (phone) => {
         const cleaned = phone.replace(/\s/g, '');  // 移除所有空格
@@ -73,13 +88,15 @@ function CheckoutPage() {
         // 用 setTimeout 模拟后端请求延迟（1秒），对接真实 API 后替换为 await fetch()
         setTimeout(() => {
             const email = user?.email || form.email;
-            const order = addOrder(email, cart, totalPrice, {
+            const order = addOrder(email, cart, total, {
                 firstName: form.firstName,
                 lastName: form.lastName,
                 address: form.address,
                 suburb: form.suburb,
                 postcode: form.postcode,
                 phone: form.phone,
+                shipping,
+                tax,
             });
             clearCart();
             // 跳转到订单总结页
@@ -213,9 +230,26 @@ function CheckoutPage() {
                                 </span>
                             </div>
                         ))}
-                        <div className="checkout-summary-total">
-                            <span>Total</span>
+                        <div className="checkout-summary-subtotal">
+                            <span>Subtotal: </span>
                             <span>${totalPrice.toFixed(2)}</span>
+                        </div>
+                        {shipping > 0 ? (
+                            <div className="checkout-summary-shipping">
+                                <span>Shipping: </span>
+                                <span>${DELIVERY_FEE.toFixed(2)}</span>
+                            </div>
+                        ) : hasDelivery ? (
+                            <div className="checkout-summary-shipping checkout-summary-shipping-free">
+                                <span>Shipping: </span>
+                                <span>Free</span>
+                            </div>
+                        ) : null}
+                        <div className="checkout-summary-total">
+                            <span>Tax Invoice: </span>
+                            <span>${tax.toFixed(2)}</span>
+                            <span>Total</span>
+                            <span>${total.toFixed(2)}</span>
                         </div>
                         <button type="submit" className="checkout-place-btn" disabled={submitting}>
                             {submitting ? 'Placing Order...' : 'Place Order'}
