@@ -113,8 +113,10 @@ function ProductDetail() {
         setTimeout(() => setAdded(false), 2000);
     };
 
+    const now = new Date();
     const minDate = new Date();
     if (deliveryMethod === 'pickup') minDate.setDate(minDate.getDate() + 1);
+    else if (deliveryMethod === 'delivery' && now.getHours() >= 13) minDate.setDate(minDate.getDate() + 1);
     const minDateStr = minDate.toISOString().split('T')[0];
 
     return (
