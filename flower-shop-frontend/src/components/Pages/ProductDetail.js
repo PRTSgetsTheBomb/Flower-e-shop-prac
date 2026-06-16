@@ -185,6 +185,15 @@ function ProductDetail() {
                             </div>
 
                             <div className="detail-field">
+                                <label>Quantity</label>
+                                <div className="qty-selector">
+                                    <button onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
+                                    <span>{qty}</span>
+                                    <button onClick={() => setQty(qty + 1)}>+</button>
+                                </div>
+                            </div>
+
+                            <div className="detail-field">
                                 <label>{deliveryMethod === 'delivery' ? 'Delivery Date' : 'Pickup Date'} *</label>
                                 <input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDateError(''); }} min={minDateStr} required />
                                 {dateError && <span className="field-error">{dateError}</span>}
