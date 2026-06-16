@@ -65,39 +65,44 @@ function AccountPage() {
                             ) : (
                                 <div className="orders-list">
                                     {orders.map((order) => (
-                                        <div key={order.id} className="order-card">
-                                            <div className="order-header">
-                                                <span className="order-id">{order.id}</span>
-                                                <span className="order-status">{order.status}</span>
-                                            </div>
-                                            <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
-                                            <div className="order-items">
-                                                {order.items.map((item) => (
-                                                    <div key={item.id} className="order-item">
-                                                        {item.image && <img src={item.image} alt={item.name} />}
-                                                        <div className="order-item-info">
-                                                            <span className="order-item-name">{item.name}</span>
-                                                            <span className="order-item-qty">x{item.qty}</span>
+                                        <Link key={order.id} to={`/order/${order.id}`} className="order-card-link">
+                                            <div className="order-card">
+                                                <div className="order-header">
+                                                    <span className="order-id">{order.id}</span>
+                                                    <span className="order-status">{order.status}</span>
+                                                </div>
+                                                <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
+                                                <div className="order-items">
+                                                    {order.items.slice(0, 3).map((item) => (
+                                                        <div key={item.id} className="order-item">
+                                                            {item.image && <img src={item.image} alt={item.name} />}
+                                                            <div className="order-item-info">
+                                                                <span className="order-item-name">{item.name}</span>
+                                                                <span className="order-item-qty">x{item.qty}</span>
+                                                            </div>
+                                                            <span className="order-item-price">${(item.price * item.qty).toFixed(2)}</span>
                                                         </div>
-                                                        <span className="order-item-price">${(item.price * item.qty).toFixed(2)}</span>
-                                                    </div>
-                                                ))}
+                                                    ))}
+                                                    {order.items.length > 3 && (
+                                                        <div className="order-item-more">+{order.items.length - 3} more items</div>
+                                                    )}
+                                                </div>
+                                                <div className="order-total">
+                                                    <span>Total</span>
+                                                    <strong>${order.total.toFixed(2)}</strong>
+                                                </div>
+                                                {user.name && (
+                                                    <p className="order-delivery">
+                                                        Paid by <strong>{user.name}</strong>
+                                                    </p>
+                                                )}
+                                                {order.delivery?.address && (
+                                                    <p className="order-delivery">
+                                                        Deliver to: {order.delivery.address}, {order.delivery.suburb} {order.delivery.postcode}
+                                                    </p>
+                                                )}
                                             </div>
-                                            <div className="order-total">
-                                                <span>Total</span>
-                                                <strong>${order.total.toFixed(2)}</strong>
-                                            </div>
-                                            {user.name && (
-                                                <p className='order-delivery'>
-                                                    Paid by <strong>{user.name}</strong>
-                                                </p>
-                                            )}
-                                            {order.delivery?.address && (
-                                                <p className="order-delivery">
-                                                    Deliver to: {order.delivery.address}, {order.delivery.suburb} {order.delivery.postcode}
-                                                </p>
-                                            )}
-                                        </div>
+                                        </Link>
                                     ))}
                                 </div>
                             )}

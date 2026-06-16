@@ -660,3 +660,23 @@
   color: #999;
   margin: 8px 0 0;
 }
+
+/* 可点击的订单卡片 */
+.order-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: box-shadow 0.2s;
+}
+
+.order-card-link:hover .order-card {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-color: #ccc;
+}
+
+.order-item-more {
+  font-size: 0.85em;
+  color: #999;
+  padding: 6px 0;
+  text-align: center;
+}
