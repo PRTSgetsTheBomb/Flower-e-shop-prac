@@ -72,8 +72,6 @@
 | 联系表单后端对接              | ContactPage 表单当前模拟发送，需对接真实邮件/API                   |
 
 |    | 告诉用户哪种花需要什么时候预定、配送（动态）通过后端                | |
-|    | ProductDetail、Checkout界面允许用户选择Delivery还是pick up | |
-|    | Checkout界面进行电话号码验证是否合规 | |
 |    | 告知用户Delivery支持（只支持配送到哪里） | |
 |    | 下完单后进行一个Order Summary | |
 |    | 可以尝试使用React Query / Tanstack Query | |

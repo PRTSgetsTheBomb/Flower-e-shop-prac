@@ -26,6 +26,15 @@ function CheckoutPage() {
     const navigate = useNavigate();
     const [placed, setPlaced] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [phoneError, setPhoneError] = useState('');
+
+    const validatePhone = (phone) => {
+        const cleaned = phone.replace(/\s/g, '');  // 移除所有空格
+        // 澳洲手机号格式：04XX XXX XXX（10 位，以 04 开头）
+        // 澳洲固话格式：0X XXXX XXXX（10 位，以 02/03/07/08 开头）
+        // 国际格式：+61 4XX XXX XXX 或 +61 X XXXX XXXX
+        return /^(04\d{8}|0[23578]\d{8}|\+614\d{8}|\+61[23578]\d{8})$/.test(cleaned);
+    };
 
     // 用一个对象管理所有表单字段，handleChange 统一更新，比每个字段单独 useState 更简洁
     const [form, setForm] = useState({
@@ -39,11 +48,27 @@ function CheckoutPage() {
     });
 
     const handleChange = (e) => {
+        const { name, value } = e.target;
         setForm({ ...form, [e.target.name]: e.target.value });
+        //手机号验证
+        if (name === 'phone') {
+            if (value && !validatePhone(value)) {
+                setPhoneError('Please enter a valid Australian phone number (e.g. 0412 345 678).');
+            }
+            else {
+                setPhoneError('');
+            }
+        }
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        //手机号最终验证
+        if (!validatePhone(form.phone)) {
+            setPhoneError('Please enter a valid Australian phone number (e.g. 0412 345 678).');
+            setSubmitting(false);
+            return;
+        }
         setSubmitting(true);
         // 用 setTimeout 模拟后端请求延迟（1秒），对接真实 API 后替换为 await fetch()
         setTimeout(() => {
@@ -82,7 +107,7 @@ function CheckoutPage() {
                 <div className="container">
                     <div className="checkout-success">
                         <h1>Order Placed!</h1>
-                        <p>Thank you for your order. You will receive a confirmation email shortly.</p>
+                        <p>Thank you for your order. You will receive a confirmation information shortly through email and message.</p>
                         <Link to="/" className="event-btn">Back to Home</Link>
                     </div>
                 </div>
@@ -101,11 +126,27 @@ function CheckoutPage() {
                             <h2>Contact</h2>
                             <div className="form-group">
                                 <label>Email *</label>
-                                <input type="email" name="email" value={form.email} onChange={handleChange} required />
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={form.email}
+                                    onChange={handleChange}
+                                    placeholder="your@email.com"
+                                    required
+                                />
                             </div>
                             <div className="form-group">
                                 <label>Phone *</label>
-                                <input type="tel" name="phone" value={form.phone} onChange={handleChange} required />
+                                <input
+                                    type="tel"
+                                    name="phone"
+                                    value={form.phone}
+                                    onChange={handleChange}
+                                    className={phoneError ? 'input-error' : ''}
+                                    placeholder="0412 345 678"
+                                    required
+                                />
+                                {phoneError && <span className="field-error">{phoneError}</span>}
                             </div>
                         </div>
 
@@ -115,11 +156,25 @@ function CheckoutPage() {
                                 <div className="form-row">
                                     <div className="form-group">
                                         <label>First Name *</label>
-                                        <input type="text" name="firstName" value={form.firstName} onChange={handleChange} required />
+                                        <input
+                                            type="text"
+                                            name="firstName"
+                                            value={form.firstName}
+                                            onChange={handleChange}
+                                            placeholder="John"
+                                            required
+                                        />
                                     </div>
                                     <div className="form-group">
                                         <label>Last Name *</label>
-                                        <input type="text" name="lastName" value={form.lastName} onChange={handleChange} required />
+                                        <input
+                                            type="text"
+                                            name="lastName"
+                                            value={form.lastName}
+                                            onChange={handleChange}
+                                            placeholder="Smith"
+                                            required
+                                        />
                                     </div>
                                 </div>
                                 <div className="form-group full">
