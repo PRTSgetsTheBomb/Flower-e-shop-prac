@@ -205,3 +205,48 @@
   cursor: pointer;
   box-sizing: border-box;
 }
+
+/* -- Stripe 卡片输入 -- */
+.stripe-card-wrap {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.stripe-card-wrap label {
+  display: block;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.stripe-card-input {
+  padding: 12px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.stripe-card-input:focus-within {
+  border-color: #222;
+}
+
+.stripe-card-hint {
+  font-size: 0.78em;
+  color: #bbb;
+  margin: 6px 0 0;
+}
+
+.stripe-error {
+  color: #e74c3c;
+  font-size: 0.85em;
+  margin-top: 8px;
+  border-radius: 8px;
+  font-size: 0.9em;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+  box-sizing: border-box;
+}

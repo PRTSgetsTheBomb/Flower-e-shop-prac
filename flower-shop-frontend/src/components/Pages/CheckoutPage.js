@@ -12,13 +12,19 @@
  * - 右侧订单摘要实时同步购物车数据
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Elements } from '@stripe/react-stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
 import FadeInUp from '../Generic/FadeInUp';
+import StripePayment from '../StripePayment';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { addOrder } from '../../utils/orders';
 import '../../PageStyles/CheckoutPage.css';
+
+// Stripe 公钥（测试模式）
+const stripePromise = loadStripe('pk_test_51TilJyFsfWLJQAuMEHQ7TNiDLcgNHMN2zvs74sY4r9ppxSkIya35TXJjrBGS7svvkdVSGQMqOHlJ4BtE1GSONP7e00YGo3HnpZ');
 
 const DELIVERY_FEE = 15;
 const TAX_RATE = 0.1;
@@ -31,6 +37,8 @@ function CheckoutPage() {
     const [placed, setPlaced] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [phoneError, setPhoneError] = useState('');
+    const [cardError, setCardError] = useState('');
+    const stripeRef = useRef(null);    // 保存 stripe 实例
 
     //计算运费
     const hasDelivery = cart.some(item => item.deliveryMethod !== 'pickup');
@@ -41,16 +49,12 @@ function CheckoutPage() {
     const tax = totalPrice * TAX_RATE;
     const total = totalPrice + shipping + tax;
 
-
     const validatePhone = (phone) => {
-        const cleaned = phone.replace(/\s/g, '');  // 移除所有空格
-        // 澳洲手机号格式：04XX XXX XXX（10 位，以 04 开头）
-        // 澳洲固话格式：0X XXXX XXXX（10 位，以 02/03/07/08 开头）
-        // 国际格式：+61 4XX XXX XXX 或 +61 X XXXX XXXX
+        const cleaned = phone.replace(/\s/g, '');
         return /^(04\d{8}|0[23578]\d{8}|\+614\d{8}|\+61[23578]\d{8})$/.test(cleaned);
     };
 
-    // 用一个对象管理所有表单字段，handleChange 统一更新，比每个字段单独 useState 更简洁
+    // 用一个对象管理所有表单字段，handleChange 统一更新
     const [form, setForm] = useState({
         firstName: '',
         lastName: '',
@@ -63,19 +67,22 @@ function CheckoutPage() {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setForm({ ...form, [e.target.name]: e.target.value });
-        //手机号验证
+        setForm({ ...form, [name]: value });
+        // 手机号验证
         if (name === 'phone') {
             if (value && !validatePhone(value)) {
                 setPhoneError('Please enter a valid Australian phone number (e.g. 0412 345 678).');
-            }
-            else {
+            } else {
                 setPhoneError('');
             }
         }
     };
 
-    const handleSubmit = (e) => {
+    const onStripeReady = useCallback(({ stripe, elements }) => {
+        stripeRef.current = { stripe, elements };
+    }, []);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         //手机号最终验证
         if (!validatePhone(form.phone)) {
@@ -83,6 +90,29 @@ function CheckoutPage() {
             setSubmitting(false);
             return;
         }
+
+        // 验证信用卡信息（如果 Stripe 已加载）
+        const { stripe, elements } = stripeRef.current || {};
+        if (stripe && elements) {
+            setCardError('');
+            const { error, paymentMethod } = await stripe.createPaymentMethod({
+                type: 'card',
+                card: elements.getElement('card'),
+                billing_details: {
+                    name: `${form.firstName} ${form.lastName}`,
+                    email: user?.email || form.email,
+                    phone: form.phone,
+                },
+            });
+            if (error) {
+                setCardError(error.message);
+                setSubmitting(false);
+                return;
+            }
+            // 支付方式创建成功，打印到控制台模拟验证
+            console.log('[Stripe] PaymentMethod created:', paymentMethod.id);
+        }
+
         setSubmitting(true);
         // 用 setTimeout 模拟后端请求延迟（1秒），对接真实 API 后替换为 await fetch()
         setTimeout(() => {
@@ -136,6 +166,7 @@ function CheckoutPage() {
         <FadeInUp as="section" className="checkout-page">
             <div className="container">
                 <h1 className="checkout-title">Checkout</h1>
+                <Elements stripe={stripePromise}>
                 <form className="checkout-layout" onSubmit={handleSubmit}>
                     {/* 左侧：表单 */}
                     <div className="checkout-form">
@@ -278,11 +309,17 @@ function CheckoutPage() {
                             <span>Total</span>
                             <span>${total.toFixed(2)}</span>
                         </div>
+
+                        {/* 信用卡支付 */}
+                        <StripePayment onStripeReady={onStripeReady} />
+                        {cardError && <p className="stripe-error">{cardError}</p>}
+
                         <button type="submit" className="checkout-place-btn" disabled={submitting}>
                             {submitting ? 'Placing Order...' : 'Place Order'}
                         </button>
                     </div>
                 </form>
+                </Elements>
             </div>
         </FadeInUp>
     );
