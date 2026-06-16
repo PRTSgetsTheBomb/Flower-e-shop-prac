@@ -91,10 +91,31 @@ function CheckoutPage() {
             return;
         }
 
-        // 验证信用卡信息（如果 Stripe 已加载）
+        setSubmitting(true);
+        setCardError('');
+
+        // 1. 请求后端创建 PaymentIntent
+        let clientSecret;
+        try {
+            const res = await fetch('http://localhost:5000/create-payment-intent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: total }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            clientSecret = data.clientSecret;
+        } catch (err) {
+            setCardError('Payment service unavailable: ' + err.message);
+            setSubmitting(false);
+            return;
+        }
+
+        // 2. 先创建 PaymentMethod 获取卡信息
         const { stripe, elements } = stripeRef.current || {};
+        let paymentMethodId;
+        let cardInfo = null;
         if (stripe && elements) {
-            setCardError('');
             const { error, paymentMethod } = await stripe.createPaymentMethod({
                 type: 'card',
                 card: elements.getElement('card'),
@@ -109,29 +130,42 @@ function CheckoutPage() {
                 setSubmitting(false);
                 return;
             }
-            // 支付方式创建成功，打印到控制台模拟验证
-            console.log('[Stripe] PaymentMethod created:', paymentMethod.id);
+            paymentMethodId = paymentMethod.id;
+            cardInfo = {
+                brand: paymentMethod.card?.brand || 'Card',
+                last4: paymentMethod.card?.last4 || '****',
+            };
         }
 
-        setSubmitting(true);
-        // 用 setTimeout 模拟后端请求延迟（1秒），对接真实 API 后替换为 await fetch()
-        setTimeout(() => {
-            const email = user?.email || form.email;
-            const order = addOrder(email, cart, total, {
-                firstName: form.firstName,
-                lastName: form.lastName,
-                address: form.address,
-                suburb: form.suburb,
-                postcode: form.postcode,
-                phone: form.phone,
-                shipping,
-                tax,
+        // 3. 确认支付
+        if (stripe && clientSecret && paymentMethodId) {
+            const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: paymentMethodId,
             });
-            clearCart();
-            // 跳转到订单总结页
-            navigate(`/order/${order.id}`);
-            setSubmitting(false);
-        }, 1000);
+            if (error) {
+                setCardError(error.message);
+                setSubmitting(false);
+                return;
+            }
+            console.log('[Stripe] Payment succeeded:', paymentIntent.id);
+        }
+
+        // 4. 支付成功 → 保存订单 & 跳转
+        const email = user?.email || form.email;
+        const order = addOrder(email, cart, total, {
+            firstName: form.firstName,
+            lastName: form.lastName,
+            address: form.address,
+            suburb: form.suburb,
+            postcode: form.postcode,
+            phone: form.phone,
+            shipping,
+            tax,
+            paymentMethod: cardInfo,
+        });
+        clearCart();
+        navigate(`/order/${order.id}`);
+        setSubmitting(false);
     };
 
     if (cart.length === 0 && !placed) {

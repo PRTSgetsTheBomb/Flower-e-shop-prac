@@ -140,6 +140,12 @@ function OrderSummary() {
                                 <span>${order.delivery.tax.toFixed(2)}</span>
                             </div>
                         )}
+                        {order.paymentMethod && (
+                            <div className="os-total-row">
+                                <span>Payment</span>
+                                <span style={{ textTransform: 'capitalize' }}>{order.paymentMethod.brand} •••• {order.paymentMethod.last4}</span>
+                            </div>
+                        )}
                         <div className="os-total-row os-total-final">
                             <span>Total</span>
                             <strong>${order.total.toFixed(2)}</strong>

@@ -49,6 +49,7 @@ export function addOrder(email, items, total, delivery) {
     })),
     total,
     delivery,
+    paymentMethod: delivery?.paymentMethod || null,
     status: 'Paid',
   };
   all[email] = [order, ...userOrders];
