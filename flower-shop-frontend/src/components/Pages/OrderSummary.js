@@ -110,7 +110,8 @@ function OrderSummary() {
                                         <span className="os-item-name">{item.name}</span>
                                         {item.deliveryDate && (
                                             <span className="os-item-date">
-                                                {item.deliveryMethod === 'pickup' ? 'Pickup' : 'Delivery'}: {item.deliveryDate}
+                                                {item.deliveryMethod === 'pickup' ?
+                                                    'Please pickup at' : 'Will be delivered at'}: {item.deliveryDate}
                                             </span>
                                         )}
                                     </div>

@@ -45,6 +45,7 @@ export function addOrder(email, items, total, delivery) {
       price: parseFloat(item.sale_price) || parseFloat(item.price) || 0,
       image: item.image,
       deliveryDate: item.deliveryDate,
+      deliveryMethod: item.deliveryMethod,
     })),
     total,
     delivery,
