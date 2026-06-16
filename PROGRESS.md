@@ -73,7 +73,7 @@
 
 |    | 告诉用户哪种花需要什么时候预定、配送（动态）通过后端                | |
 |    | 告知用户Delivery支持（只支持配送到哪里） | |
-|    | 下完单后进行一个Order Summary | |
+|    | Delivery Address 自动填充 | |
 |    | 可以尝试使用React Query / Tanstack Query | |
 
 ## 可优化

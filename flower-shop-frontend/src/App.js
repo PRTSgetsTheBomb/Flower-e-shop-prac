@@ -57,6 +57,7 @@ import LegalNotice from './components/Pages/LegalNotice';
 import PrivacyPolicy from './components/Pages/PrivacyPolicy';
 import TermsOfService from './components/Pages/TermsOfService';
 import CheckoutPage from './components/Pages/CheckoutPage';
+import OrderSummary from './components/Pages/OrderSummary';
 import ScrollToTop from './components/ScrollToTop';
 
 function App() {
@@ -78,6 +79,7 @@ function App() {
         <Route path="/register" element={<SignUpPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/order/:orderId" element={<OrderSummary />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/delivery-areas" element={<DeliveryArea />} />
         <Route path="/delivery/:slug" element={<DeliveryPage />} />

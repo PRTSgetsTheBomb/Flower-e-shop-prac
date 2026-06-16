@@ -73,7 +73,7 @@ function CheckoutPage() {
         // 用 setTimeout 模拟后端请求延迟（1秒），对接真实 API 后替换为 await fetch()
         setTimeout(() => {
             const email = user?.email || form.email;
-            addOrder(email, cart, totalPrice, {
+            const order = addOrder(email, cart, totalPrice, {
                 firstName: form.firstName,
                 lastName: form.lastName,
                 address: form.address,
@@ -82,7 +82,8 @@ function CheckoutPage() {
                 phone: form.phone,
             });
             clearCart();
-            setPlaced(true);
+            // 跳转到订单总结页
+            navigate(`/order/${order.id}`);
             setSubmitting(false);
         }, 1000);
     };

@@ -1,0 +1,228 @@
+/* ===== 订单总结页 ===== */
+.order-summary-page {
+  padding: 60px 0;
+}
+
+.order-summary-card {
+  max-width: 720px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  padding: 48px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* -- 头部 -- */
+.os-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.os-status-badge {
+  display: inline-block;
+  background: #27ae60;
+  color: #fff;
+  font-size: 0.85em;
+  font-weight: 700;
+  padding: 6px 18px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+.os-header h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  color: #222;
+  margin: 0 0 8px;
+}
+
+.os-subtitle {
+  color: #888;
+  font-size: 0.95em;
+  margin: 0;
+}
+
+/* -- 订单信息网格 -- */
+.os-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  background: #fafafa;
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 32px;
+}
+
+.os-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.os-info-label {
+  font-size: 0.8em;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.os-info-value {
+  font-size: 0.95em;
+  color: #222;
+  font-weight: 500;
+}
+
+/* -- 区块 -- */
+.os-section {
+  margin-bottom: 28px;
+}
+
+.os-section h2 {
+  font-size: 1em;
+  font-weight: 700;
+  color: #222;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.os-delivery-detail {
+  color: #555;
+  font-size: 0.9em;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* -- 商品清单 -- */
+.os-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.os-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.os-item-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.os-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.os-item-name {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #222;
+}
+
+.os-item-date {
+  font-size: 0.8em;
+  color: #999;
+}
+
+.os-item-qty {
+  font-size: 0.85em;
+  color: #888;
+}
+
+.os-item-price {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #222;
+  min-width: 70px;
+  text-align: right;
+}
+
+/* -- 金额汇总 -- */
+.os-total {
+  border-top: 1px solid #eee;
+  padding-top: 16px;
+  margin-bottom: 28px;
+}
+
+.os-total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9em;
+  color: #555;
+  padding: 4px 0;
+}
+
+.os-total-final {
+  border-top: 1px solid #eee;
+  margin-top: 8px;
+  padding-top: 12px;
+  font-size: 1.05em;
+  color: #222;
+}
+
+/* -- 操作按钮 -- */
+.os-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.os-actions .btn-primary,
+.os-actions .btn-secondary {
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 0.9em;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+  transition: opacity 0.2s;
+}
+
+.os-actions .btn-primary {
+  background: #222;
+  color: #fff;
+}
+
+.os-actions .btn-secondary {
+  background: #f5f5f5;
+  color: #222;
+  border: 1px solid #ddd;
+}
+
+.os-actions .btn-primary:hover,
+.os-actions .btn-secondary:hover {
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .order-summary-card {
+    padding: 28px 20px;
+  }
+
+  .os-info-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .os-header h1 {
+    font-size: 1.4em;
+  }
+
+  .os-actions {
+    flex-direction: column;
+  }
+
+  .os-actions .btn-primary,
+  .os-actions .btn-secondary {
+    width: 100%;
+  }
+}

@@ -63,3 +63,13 @@ export function getUserOrders(email) {
   const all = getAllOrders();
   return all[email] || [];
 }
+
+/**
+ * 按订单 ID 查询单笔订单
+ * @param {string} email
+ * @param {string} orderId
+ */
+export function getOrderById(email, orderId) {
+  const orders = getUserOrders(email);
+  return orders.find((o) => o.id === orderId) || null;
+}
