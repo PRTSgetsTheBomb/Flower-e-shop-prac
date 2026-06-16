@@ -77,7 +77,6 @@
 |    | 告知用户Delivery支持（只支持配送到哪里） | |
 |    | 下完单后进行一个Order Summary | |
 |    | 可以尝试使用React Query / Tanstack Query | |
-|    | Github尝试添加分支 | |
 
 ## 可优化
 | 渲染动画   | 添加渲染列表、详情页的过渡效果                            | 已完成 |

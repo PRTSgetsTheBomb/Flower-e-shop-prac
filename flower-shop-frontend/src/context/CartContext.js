@@ -38,9 +38,11 @@ const CartContext = createContext();
 // ---- Reducer：集中管理所有购物车状态变更 ----
 function cartReducer(state, action) {
   switch (action.type) {
-    // 添加商品：如果已存在则数量 +1，否则新增条目
+    // 添加商品：如果已存在且配送方式一致则数量 +1，否则新增条目
     case 'ADD': {
-      const exist = state.find((item) => item.id === action.product.id);
+      const exist = state.find((item) =>
+        item.id === action.product.id && item.deliveryMethod === action.product.deliveryMethod
+      );
       if (exist) {
         // 不可变更新：用 map 找到目标项，用 ... 展开后修改 qty
         return state.map((item) =>
