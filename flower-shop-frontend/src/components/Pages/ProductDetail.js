@@ -195,6 +195,12 @@ function ProductDetail() {
 
                             <div className="detail-field">
                                 <label>{deliveryMethod === 'delivery' ? 'Delivery Date' : 'Pickup Date'} *</label>
+                                {deliveryMethod === 'delivery' && (
+                                    <p className="delivery-hint">
+                                        We deliver to selected Melbourne suburbs.
+                                        <Link to="/delivery-areas" className="delivery-hint-link"> View areas</Link>
+                                    </p>
+                                )}
                                 <input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDateError(''); }} min={minDateStr} required />
                                 {dateError && <span className="field-error">{dateError}</span>}
                             </div>

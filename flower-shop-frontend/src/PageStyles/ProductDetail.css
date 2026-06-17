@@ -98,6 +98,24 @@
   margin-bottom: 6px;
 }
 
+.delivery-hint {
+  font-size: 0.8em;
+  color: #888;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.delivery-hint-link {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+.delivery-hint-link:hover {
+    opacity: 0.7;
+}
+
 .qty-selector {
   display: inline-flex;
   align-items: center;

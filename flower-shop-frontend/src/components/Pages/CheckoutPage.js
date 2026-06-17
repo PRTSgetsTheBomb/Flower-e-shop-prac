@@ -21,6 +21,7 @@ import StripePayment from '../StripePayment';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { addOrder } from '../../utils/orders';
+import deliveryAreas from '../Generic/Areas';
 import '../../PageStyles/CheckoutPage.css';
 
 // Stripe 公钥（测试模式）
@@ -38,6 +39,7 @@ function CheckoutPage() {
     const [submitting, setSubmitting] = useState(false);
     const [phoneError, setPhoneError] = useState('');
     const [cardError, setCardError] = useState('');
+    const [suburbError, setSuburbError] = useState('');
     const stripeRef = useRef(null);    // 保存 stripe 实例
 
     //计算运费
@@ -87,6 +89,13 @@ function CheckoutPage() {
         //手机号最终验证
         if (!validatePhone(form.phone)) {
             setPhoneError('Please enter a valid Australian phone number (e.g. 0412 345 678).');
+            setSubmitting(false);
+            return;
+        }
+
+        // Suburb 最终验证（仅配送订单）
+        if (!form.suburb) {
+            setSuburbError('Please select a delivery area.');
             setSubmitting(false);
             return;
         }
@@ -250,6 +259,7 @@ function CheckoutPage() {
                                                         suburb: addr.suburb || '',
                                                         postcode: addr.postcode || '',
                                                     }));
+                                                    setSuburbError('');
                                                 }
                                             }}
                                         >
@@ -292,9 +302,26 @@ function CheckoutPage() {
                                     <input type="text" name="address" value={form.address} onChange={handleChange} required />
                                 </div>
                                 <div className="form-row">
-                                    <div className="form-group">
-                                        <label>Suburb *</label>
-                                        <input type="text" name="suburb" value={form.suburb} onChange={handleChange} required />
+                                    <div className="form-group suburb-group">
+                                        <label>Supported Delivery Area *</label>
+                                        <select
+                                            name="suburb"
+                                            value={form.suburb}
+                                            onChange={(e) => {
+                                                setForm({ ...form, suburb: e.target.value });
+                                                setSuburbError('');
+                                            }}
+                                            className={suburbError ? 'input-error' : ''}
+                                            required
+                                        >
+                                            <option value="">Select your suburb...</option>
+                                            {deliveryAreas.map((area) => (
+                                                <option key={area} value={area}>{area}</option>
+                                            ))}
+                                        </select>
+                                        {suburbError && (
+                                            <span className="field-error">Please select a delivery area.</span>
+                                        )}
                                     </div>
                                     <div className="form-group">
                                         <label>Postcode *</label>

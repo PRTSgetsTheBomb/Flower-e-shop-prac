@@ -75,7 +75,9 @@
 | 后端对接   | AuthContext 的 saveAccount / authenticate 替换为真实 API          |
 | 结算流程   | CheckoutPage 下单对接真实 API                           |
 | 联系表单   | ContactPage 表单当前模拟发送，需对接真实邮件/API                   |
-| 顶部提示栏 | 告诉用户何时订购可享当日送达                              |
+| ProductDetail界面 | 告诉用户哪些花支持配送，哪些花仅支持自提                             |
+|           | 告知用户Delivery支持（只支持配送到哪里） | |
+|           | 可以尝试使用React Query / Tanstack Query | |
 | 分类后描述 | 在商品列表之后添加更多描述、吸引阅读                       |
 | 字体美化   | 使用适当字体提升阅读体验                                  |
 | 分享按钮   | 添加分享功能，用户点击分享按钮时显示分享弹窗                |

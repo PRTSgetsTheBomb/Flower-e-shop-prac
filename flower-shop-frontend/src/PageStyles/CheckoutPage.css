@@ -43,10 +43,39 @@
 
 .checkout-form .form-group {
     margin-bottom: 14px;
+    position: relative;
 }
 
 .checkout-form .form-group.full {
     grid-column: 1 / -1;
+}
+
+.suburb-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+/* Suburb 下拉框与 postcode 同行 */
+.suburb-group select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.95em;
+    outline: none;
+    background: #fff;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.suburb-group select:focus {
+    border-color: var(--color-primary);
+}
+
+.suburb-group select.input-error {
+    border-color: #e74c3c;
 }
 
 .checkout-form .form-group label {
