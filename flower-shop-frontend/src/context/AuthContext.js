@@ -1,131 +1,206 @@
 /**
  * 认证上下文 - AuthContext
- * 
- * 当前实现：
- *   - 注册信息存储在 localStorage 中（键名: 'registered_accounts'）
- *   - 登录状态存储在 localStorage 中（键名: 'current_user'）
- *   - 密码以明文存储，仅用于本地演示
- * 
- * 后续对接真实后端 API 需要替换：
- *   1. saveAccount()   → 调用注册接口 POST /api/register
- *   2. authenticate()   → 调用登录接口 POST /api/login
- *   3. 登录成功后保存后端返回的 token 而非本地数据
+ *
+ * 认证方式：JWT Authentication for WP REST API
+ * 注册：通过后端 Express 服务代理到 WooCommerce API
+ * 登录：直接调用 WordPress JWT 端点
+ *
+ * 存储：
+ *   - jwt_token     — JWT Token
+ *   - current_user  — 用户信息
+ *   - user_addresses — 地址簿（本地存储）
+ *
+ * 接口与原有实现保持一致，页面组件无需修改
  */
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const AuthContext = createContext();
-const ACCOUNTS_KEY = 'registered_accounts';
+const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
+const WP_BASE = process.env.REACT_APP_WC_URL || 'http://localhost:8080';
 
-function getAccounts() {
+const ADDRESSES_KEY = 'user_addresses';
+
+function getLocalAddresses(email) {
   try {
-    return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || [];
+    const all = JSON.parse(localStorage.getItem(ADDRESSES_KEY)) || {};
+    return all[email] || [];
   } catch {
     return [];
   }
 }
 
-function saveAccount(firstName, lastName, email, password) {
-  const accounts = getAccounts();
-  if (accounts.find((a) => a.email === email)) {
-    throw new Error('An account with this email already exists.');
+function saveLocalAddress(email, address) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ADDRESSES_KEY)) || {};
+    const list = all[email] || [];
+    all[email] = [...list, { ...address, id: Date.now().toString() }];
+    localStorage.setItem(ADDRESSES_KEY, JSON.stringify(all));
+    return all[email];
+  } catch {
+    return [];
   }
-  const newAccount = { firstName, lastName, name: `${firstName} ${lastName}`, email, password };
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([...accounts, newAccount]));
-  return { firstName, lastName, name: `${firstName} ${lastName}`, email };
 }
 
-function authenticate(email, password) {
-  const accounts = getAccounts();
-  const account = accounts.find((a) => a.email === email);
-  if (!account || account.password !== password) {
-    throw new Error('Invalid email or password.');
+function removeLocalAddress(email, addressId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ADDRESSES_KEY)) || {};
+    all[email] = (all[email] || []).filter((a) => a.id !== addressId);
+    localStorage.setItem(ADDRESSES_KEY, JSON.stringify(all));
+    return all[email];
+  } catch {
+    return [];
   }
-  return { firstName: account.firstName, lastName: account.lastName, name: account.name, email: account.email };
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('current_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
   const [loading, setLoading] = useState(false);
 
-  const register = useCallback(async (firstName, lastName, email, password) => {
-    setLoading(true);
-    try {
-      const userData = saveAccount(firstName, lastName, email, password);
-      localStorage.setItem('current_user', JSON.stringify(userData));
-      setUser(userData);
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // ---------- 登录（JWT） ----------
   const login = useCallback(async (email, password) => {
     setLoading(true);
     try {
-      const userData = authenticate(email, password);
+      const res = await fetch(`${WP_BASE}/wp-json/jwt-auth/v1/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        // 根据 JWT 错误码映射英文提示，不受 WordPress 语言设置影响
+        const errorMap = {
+          'jwt_auth_invalid_username': 'Invalid email address.',
+          'jwt_auth_incorrect_password': 'The password you entered is incorrect.',
+          'jwt_auth_invalid_email': 'Invalid email address.',
+          'jwt_auth_invalid_token': 'Session expired. Please log in again.',
+          'jwt_auth_user_not_found': 'No account found with this email address.',
+        };
+        const code = data?.code?.replace('[jwt_auth] ', '') || '';
+        const msg = errorMap[code] || data?.message?.replace(/<[^>]+>/g, '') || 'Invalid email or password.';
+        return { success: false, error: msg };
+      }
+
+      const nameParts = (data.user_display_name || email).split(' ');
+      const userData = {
+        token: data.token,
+        email: data.user_email,
+        name: data.user_display_name,
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
+      };
+
+      localStorage.setItem('jwt_token', data.token);
       localStorage.setItem('current_user', JSON.stringify(userData));
       setUser(userData);
       return { success: true };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: 'Network error. Please try again.' };
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // ---------- 注册（通过后端代理到 WooCommerce） ----------
+  const register = useCallback(async (firstName, lastName, email, password) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName, lastName, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Registration failed.' };
+      }
+
+      // 注册成功后自动登录（获取 JWT token）
+      const loginRes = await fetch(`${WP_BASE}/wp-json/jwt-auth/v1/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password }),
+      });
+
+      const loginData = await loginRes.json();
+
+      if (loginRes.ok) {
+        const userData = {
+          ...data.user,
+          token: loginData.token,
+        };
+        localStorage.setItem('jwt_token', loginData.token);
+        localStorage.setItem('current_user', JSON.stringify(userData));
+        setUser(userData);
+      } else {
+        localStorage.setItem('current_user', JSON.stringify(data.user));
+        setUser(data.user);
+      }
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: 'Network error. Please try again.' };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ---------- 登出 ----------
   const logout = useCallback(() => {
+    localStorage.removeItem('jwt_token');
     localStorage.removeItem('current_user');
     setUser(null);
   }, []);
 
-  // 更新用户信息（当前仅支持修改名称，扩展时可添加更多字段）
+  // ---------- 更新资料 ----------
   const updateProfile = useCallback(async (updates) => {
     if (!user) return { success: false, error: 'Not logged in.' };
+
+    const token = localStorage.getItem('jwt_token');
+    if (token) {
+      try {
+        await fetch(`${API_BASE}/api/me`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, ...updates }),
+        });
+      } catch {
+        // 服务端更新失败不影响本地更新
+      }
+    }
+
     const newUser = { ...user, ...updates };
-    // 同步更新 registered_accounts 中的数据
-    const accounts = getAccounts();
-    const updatedAccounts = accounts.map((a) =>
-      a.email === user.email ? { ...a, ...updates } : a
-    );
-    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(updatedAccounts));
     localStorage.setItem('current_user', JSON.stringify(newUser));
     setUser(newUser);
     return { success: true };
   }, [user]);
 
-  // 添加地址
+  // ---------- 添加地址 ----------
   const addAddress = useCallback(async (address) => {
     if (!user) return { success: false, error: 'Not logged in.' };
-    const currentAddresses = user.addresses || [];
-    const newAddress = { ...address, id: Date.now().toString() };
-    const newUser = { ...user, addresses: [...currentAddresses, newAddress] };
-    const accounts = getAccounts();
-    const updatedAccounts = accounts.map((a) =>
-      a.email === user.email ? { ...a, addresses: [...(a.addresses || []), newAddress] } : a
-    );
-    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(updatedAccounts));
+    const updatedList = saveLocalAddress(user.email, address);
+    const newUser = { ...user, addresses: updatedList };
     localStorage.setItem('current_user', JSON.stringify(newUser));
     setUser(newUser);
     return { success: true };
   }, [user]);
 
-  // 删除地址
+  // ---------- 删除地址 ----------
   const removeAddress = useCallback(async (addressId) => {
     if (!user) return { success: false, error: 'Not logged in.' };
-    const currentAddresses = user.addresses || [];
-    const newAddresses = currentAddresses.filter((a) => a.id !== addressId);
-    const newUser = { ...user, addresses: newAddresses };
-    const accounts = getAccounts();
-    const updatedAccounts = accounts.map((a) =>
-      a.email === user.email ? { ...a, addresses: newAddresses } : a
-    );
-    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(updatedAccounts));
+    const updatedList = removeLocalAddress(user.email, addressId);
+    const newUser = { ...user, addresses: updatedList };
     localStorage.setItem('current_user', JSON.stringify(newUser));
     setUser(newUser);
     return { success: true };
@@ -140,4 +215,9 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+/** 获取当前 JWT token（供其他模块使用） */
+export function getToken() {
+  return localStorage.getItem('jwt_token');
 }
