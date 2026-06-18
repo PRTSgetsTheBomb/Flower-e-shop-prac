@@ -66,7 +66,7 @@
 | `/policies/legal-notice`    | `LegalNotice`     | 已完成  |
 | `/blogs`                    | `BlogPage`        | 已完成  |
 | `/blogs/:slug`              | `BlogPostPage`    | 已完成  |
-| `*` (404)                   | `PlaceholderPage` | 占位   |
+| `*` (404)                   | `PlaceholderPage` | 占位    |
 
 ## 剩余待开发
 
@@ -74,8 +74,16 @@
 |------     |------                                                                              |
 | 后端对接   | AuthContext 的 saveAccount / authenticate 替换为真实 API          |
 | 联系表单   | ContactPage 表单当前模拟发送，需对接真实邮件/API                   |
+
+### 客户端
+|Review| 收到货才能评论
+
+### 商家端
+|WooCommerce| 下单后可以在WC看到，包括各种信息要进行汇总
+
+## 优化建议
 | ProductDetail界面 | 告诉用户哪些花支持配送，哪些花仅支持自提                             |
-|           | 可以尝试使用React Query / Tanstack Query | 
+|           | 可以尝试使用React Query / Tanstack Query                 | 
 | 分类后描述 | 在商品列表之后添加更多描述、吸引阅读                       |
 | 字体美化   | 使用适当字体提升阅读体验                                  |
 | 分享按钮   | 添加分享功能，用户点击分享按钮时显示分享弹窗                |
