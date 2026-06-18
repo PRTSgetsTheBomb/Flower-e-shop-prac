@@ -72,14 +72,12 @@
 
 | 事项      | 说明                                                                                |
 |------     |------                                                                              |
-| 后端对接   | AuthContext 的 saveAccount / authenticate 替换为真实 API          |
 | 联系表单   | ContactPage 表单当前模拟发送，需对接真实邮件/API                   |
 
 ### 客户端
 |Review| 收到货才能评论
 
 ### 商家端
-|WooCommerce| 下单后可以在WC看到，包括各种信息要进行汇总
 |运费| 计算到不同地区的运费
 
 ## 优化建议

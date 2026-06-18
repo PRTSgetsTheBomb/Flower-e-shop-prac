@@ -94,7 +94,7 @@ function CheckoutPage() {
         }
 
         // Suburb 最终验证（仅配送订单）
-        if (!form.suburb) {
+        if (hasDelivery && !form.suburb) {
             setSuburbError('Please select a delivery area.');
             setSubmitting(false);
             return;
