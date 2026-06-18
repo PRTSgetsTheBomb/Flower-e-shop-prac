@@ -28,8 +28,6 @@ function AccountPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const [tab, setTab] = useState('orders');   // 仪表盘标签页: 'orders' | 'profile'
-    const [editingName, setEditingName] = useState(false);
-    const [newName, setNewName] = useState('');
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [addressForm, setAddressForm] = useState({
         label: '', street: '', suburb: '', city: '', state: '', postcode: ''
@@ -46,7 +44,7 @@ function AccountPage() {
                 <div className="container">
                     <div className="account-header">
                         <h1>My Account</h1>
-                        <div className="account-avatar">{user.name?.[0]?.toUpperCase() || 'U'}</div>
+                        <div className="account-avatar">{user.firstName?.[0]?.toUpperCase() || user.name?.[0]?.toUpperCase() || 'U'}</div>
                     </div>
 
                     <nav className="account-tabs">
@@ -113,36 +111,12 @@ function AccountPage() {
                         <>
                             <div className="account-card">
                                 <div className="profile-row">
-                                    <span className="profile-label">Name</span>
-                                    {editingName ? (
-                                        <div className="profile-edit-wrap">
-                                            <input
-                                                type="text"
-                                                className="profile-input"
-                                                value={newName}
-                                                onChange={(e) => setNewName(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && newName.trim()) {
-                                                        updateProfile({ name: newName.trim() });
-                                                        setEditingName(false);
-                                                    }
-                                                    if (e.key === 'Escape') setEditingName(false);
-                                                }}
-                                                autoFocus
-                                            />
-                                            <button className="profile-save" onClick={() => {
-                                                if (newName.trim()) { updateProfile({ name: newName.trim() }); setEditingName(false); }
-                                            }}>
-                                                Save
-                                            </button>
-                                            <button className="profile-cancel" onClick={() => setEditingName(false)}>Cancel</button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <span className="profile-value">{user.name}</span>
-                                            <button className="profile-edit" onClick={() => { setNewName(user.name); setEditingName(true); }}>✎</button>
-                                        </>
-                                    )}
+                                    <span className="profile-label">First Name</span>
+                                    <span className="profile-value">{user.firstName}</span>
+                                </div>
+                                <div className="profile-row">
+                                    <span className="profile-label">Last Name</span>
+                                    <span className="profile-value">{user.lastName}</span>
                                 </div>
                                 <div className="profile-row">
                                     <span className="profile-label">Email</span>
