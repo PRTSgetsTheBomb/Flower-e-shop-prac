@@ -77,16 +77,7 @@ export function AuthProvider({ children }) {
       const data = await res.json();
 
       if (!res.ok) {
-        // 根据 JWT 错误码映射英文提示，不受 WordPress 语言设置影响
-        const errorMap = {
-          'jwt_auth_invalid_username': 'Invalid email address.',
-          'jwt_auth_incorrect_password': 'The password you entered is incorrect.',
-          'jwt_auth_invalid_email': 'Invalid email address.',
-          'jwt_auth_invalid_token': 'Session expired. Please log in again.',
-          'jwt_auth_user_not_found': 'No account found with this email address.',
-        };
-        const code = data?.code?.replace('[jwt_auth] ', '') || '';
-        const msg = errorMap[code] || data?.message?.replace(/<[^>]+>/g, '') || 'Invalid email or password.';
+        const msg = data?.message?.replace(/<[^>]+>/g, '') || 'Invalid email or password.';
         return { success: false, error: msg };
       }
 

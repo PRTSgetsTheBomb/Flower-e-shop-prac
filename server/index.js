@@ -213,6 +213,88 @@ app.put('/api/me', async (req, res) => {
 });
 
 // ============================================================
+//  创建 WooCommerce 订单
+// ============================================================
+
+/**
+ * POST /api/create-order
+ * Body: { items, customer, shipping, paymentMethod, token? }
+ *
+ * 接受前端结账数据，在 WooCommerce 中创建订单
+ * 如果提供了 JWT token，会关联到对应的客户账号
+ */
+app.post('/api/create-order', async (req, res) => {
+  try {
+    const { items, customer, shipping, paymentMethod, token } = req.body;
+
+    if (!items?.length) {
+      return res.status(400).json({ error: 'Order must have at least one item.' });
+    }
+
+    // 如果已登录，用 JWT token 关联到 WooCommerce 客户
+    let customerId = 0;
+    if (token) {
+      try {
+        const wpResp = await fetch(`${process.env.WC_URL}/wp-json/wp/v2/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (wpResp.ok) {
+          const wpUser = await wpResp.json();
+          customerId = wpUser.id;
+        }
+      } catch {
+        // token 验证失败，按游客处理
+      }
+    }
+
+    const orderData = {
+      payment_method: 'stripe',
+      payment_method_title: 'Stripe (Card)',
+      set_paid: true,
+      billing: {
+        first_name: customer?.firstName || '',
+        last_name: customer?.lastName || '',
+        address_1: shipping?.address || '',
+        city: shipping?.suburb || '',
+        postcode: shipping?.postcode || '',
+        email: customer?.email || '',
+        phone: shipping?.phone || '',
+      },
+      shipping: {
+        first_name: customer?.firstName || '',
+        last_name: customer?.lastName || '',
+        address_1: shipping?.address || '',
+        city: shipping?.suburb || '',
+        postcode: shipping?.postcode || '',
+      },
+      line_items: items.map((item) => ({
+        product_id: parseInt(item.id, 10),
+        quantity: item.qty,
+        price: parseFloat(item.sale_price || item.price || 0).toFixed(2),
+      })),
+      customer_id: customerId,
+      customer_note: '',
+    };
+
+    const { data } = await wcApi.post('orders', orderData);
+
+    console.log('[Order] Created:', data.id, 'for', customer?.email || 'guest');
+
+    res.json({
+      success: true,
+      orderId: data.id,
+      orderNumber: data.number,
+      dateCreated: data.date_created,
+      total: data.total,
+      status: data.status,
+    });
+  } catch (err) {
+    console.error('[Order] Error:', err.response?.data?.message || err.message);
+    res.status(500).json({ error: err.response?.data?.message || 'Failed to create order.' });
+  }
+});
+
+// ============================================================
 //  WooCommerce API 代理（前端通过此接口调用 WooCommerce）
 // ============================================================
 

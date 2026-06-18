@@ -159,7 +159,7 @@ function CheckoutPage() {
             console.log('[Stripe] Payment succeeded:', paymentIntent.id);
         }
 
-        // 4. 支付成功 → 保存订单 & 跳转
+        // 4. 支付成功 → 保存订单 & 同步到 WooCommerce
         const email = user?.email || form.email;
         const order = addOrder(email, cart, total, {
             firstName: form.firstName,
@@ -172,6 +172,26 @@ function CheckoutPage() {
             tax,
             paymentMethod: cardInfo,
         });
+
+        // 同步订单到 WooCommerce 后端（不阻塞跳转）
+        const token = localStorage.getItem('jwt_token');
+        fetch('http://localhost:5000/api/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: cart,
+                customer: { firstName: form.firstName, lastName: form.lastName, email },
+                shipping: { address: form.address, suburb: form.suburb, postcode: form.postcode, phone: form.phone },
+                paymentMethod: cardInfo?.brand || 'Card',
+                token,
+            }),
+        }).then((res) => {
+            if (res.ok) console.log('[Order] Synced to WooCommerce');
+            else console.warn('[Order] Sync failed:', res.status);
+        }).catch((err) => {
+            console.warn('[Order] Sync error:', err.message);
+        });
+
         clearCart();
         navigate(`/order/${order.id}`);
         setSubmitting(false);
