@@ -170,14 +170,28 @@ function ProductDetail() {
                                     <button
                                         type="button"
                                         className={`method-btn${deliveryMethod === 'delivery' ? ' active' : ''}`}
-                                        onClick={() => setDeliveryMethod('delivery')}
+                                        onClick={() => {
+                                            setDeliveryMethod('delivery');
+                                            // 切换方式后重新校验日期
+                                            const newMin = new Date();
+                                            if (newMin.getHours() >= 13) newMin.setDate(newMin.getDate() + 1);
+                                            const newMinStr = newMin.toISOString().split('T')[0];
+                                            if (deliveryDate && deliveryDate < newMinStr) setDeliveryDate('');
+                                        }}
                                     >
                                         Delivery
                                     </button>
                                     <button
                                         type="button"
                                         className={`method-btn${deliveryMethod === 'pickup' ? ' active' : ''}`}
-                                        onClick={() => setDeliveryMethod('pickup')}
+                                        onClick={() => {
+                                            setDeliveryMethod('pickup');
+                                            // 切换方式后重新校验日期
+                                            const newMin = new Date();
+                                            newMin.setDate(newMin.getDate() + 1);
+                                            const newMinStr = newMin.toISOString().split('T')[0];
+                                            if (deliveryDate && deliveryDate < newMinStr) setDeliveryDate('');
+                                        }}
                                     >
                                         Pickup
                                     </button>
