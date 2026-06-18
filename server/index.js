@@ -273,7 +273,10 @@ app.post('/api/create-order', async (req, res) => {
         price: parseFloat(item.sale_price || item.price || 0).toFixed(2),
       })),
       customer_id: customerId,
-      customer_note: '',
+      customer_note: items
+        .filter(item => item.giftMessage)
+        .map(item => `Gift Message for "${item.name}": ${item.giftMessage}`)
+        .join(' | '),
     };
 
     const { data } = await wcApi.post('orders', orderData);

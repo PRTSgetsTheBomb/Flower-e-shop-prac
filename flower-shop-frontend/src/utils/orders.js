@@ -46,6 +46,7 @@ export function addOrder(email, items, total, delivery) {
       image: item.image,
       deliveryDate: item.deliveryDate,
       deliveryMethod: item.deliveryMethod,
+      giftMessage: item.giftMessage || '',
     })),
     total,
     delivery,
