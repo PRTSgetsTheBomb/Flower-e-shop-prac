@@ -70,6 +70,7 @@ function ProductDetail() {
     const [selectedImage, setSelectedImage] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [qty, setQty] = useState(1);
+    const [deliveryMethod, setDeliveryMethod] = useState('delivery');
     const [deliveryDate, setDeliveryDate] = useState('');
     const [giftMessage, setGiftMessage] = useState('');
     const [dateError, setDateError] = useState('');
@@ -103,16 +104,20 @@ function ProductDetail() {
     const handleAdd = () => {
         // 校验：配送/自取日期为必填
         if (!deliveryDate) {
-            setDateError('Please select a delivery or pickup date.');
+            setDateError(`Please select a ${deliveryMethod} date.`);
             return;
         }
         setDateError('');
-        addToCart({ ...product, qty, deliveryDate, giftMessage });
+        addToCart({ ...product, qty, deliveryMethod, deliveryDate, giftMessage });
         setAdded(true);
         setTimeout(() => setAdded(false), 2000);
     };
 
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const minDate = new Date();
+    if (deliveryMethod === 'pickup') minDate.setDate(minDate.getDate() + 1);
+    else if (deliveryMethod === 'delivery' && now.getHours() >= 13) minDate.setDate(minDate.getDate() + 1);
+    const minDateStr = minDate.toISOString().split('T')[0];
 
     return (
         <FadeInUp as="section" className="detail-page">
@@ -160,6 +165,40 @@ function ProductDetail() {
 
                         <div className="detail-options">
                             <div className="detail-field">
+                                <label>Method</label>
+                                <div className="method-toggle">
+                                    <button
+                                        type="button"
+                                        className={`method-btn${deliveryMethod === 'delivery' ? ' active' : ''}`}
+                                        onClick={() => {
+                                            setDeliveryMethod('delivery');
+                                            // 切换方式后重新校验日期
+                                            const newMin = new Date();
+                                            if (newMin.getHours() >= 13) newMin.setDate(newMin.getDate() + 1);
+                                            const newMinStr = newMin.toISOString().split('T')[0];
+                                            if (deliveryDate && deliveryDate < newMinStr) setDeliveryDate('');
+                                        }}
+                                    >
+                                        Delivery
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`method-btn${deliveryMethod === 'pickup' ? ' active' : ''}`}
+                                        onClick={() => {
+                                            setDeliveryMethod('pickup');
+                                            // 切换方式后重新校验日期
+                                            const newMin = new Date();
+                                            newMin.setDate(newMin.getDate() + 1);
+                                            const newMinStr = newMin.toISOString().split('T')[0];
+                                            if (deliveryDate && deliveryDate < newMinStr) setDeliveryDate('');
+                                        }}
+                                    >
+                                        Pickup
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="detail-field">
                                 <label>Quantity</label>
                                 <div className="qty-selector">
                                     <button onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
@@ -169,8 +208,14 @@ function ProductDetail() {
                             </div>
 
                             <div className="detail-field">
-                                <label>Delivery / Pickup Date *</label>
-                                <input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDateError(''); }} min={today} required />
+                                <label>{deliveryMethod === 'delivery' ? 'Delivery Date' : 'Pickup Date'} *</label>
+                                {deliveryMethod === 'delivery' && (
+                                    <p className="delivery-hint">
+                                        We deliver to selected Melbourne suburbs.
+                                        <Link to="/delivery-areas" className="delivery-hint-link"> View areas</Link>
+                                    </p>
+                                )}
+                                <input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDateError(''); }} min={minDateStr} required />
                                 {dateError && <span className="field-error">{dateError}</span>}
                             </div>
 

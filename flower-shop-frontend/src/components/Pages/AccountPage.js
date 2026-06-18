@@ -28,8 +28,6 @@ function AccountPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const [tab, setTab] = useState('orders');   // 仪表盘标签页: 'orders' | 'profile'
-    const [editingName, setEditingName] = useState(false);
-    const [newName, setNewName] = useState('');
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [addressForm, setAddressForm] = useState({
         label: '', street: '', suburb: '', city: '', state: '', postcode: ''
@@ -46,7 +44,7 @@ function AccountPage() {
                 <div className="container">
                     <div className="account-header">
                         <h1>My Account</h1>
-                        <div className="account-avatar">{user.name?.[0]?.toUpperCase() || 'U'}</div>
+                        <div className="account-avatar">{user.firstName?.[0]?.toUpperCase() || user.name?.[0]?.toUpperCase() || 'U'}</div>
                     </div>
 
                     <nav className="account-tabs">
@@ -65,39 +63,44 @@ function AccountPage() {
                             ) : (
                                 <div className="orders-list">
                                     {orders.map((order) => (
-                                        <div key={order.id} className="order-card">
-                                            <div className="order-header">
-                                                <span className="order-id">{order.id}</span>
-                                                <span className="order-status">{order.status}</span>
-                                            </div>
-                                            <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
-                                            <div className="order-items">
-                                                {order.items.map((item) => (
-                                                    <div key={item.id} className="order-item">
-                                                        {item.image && <img src={item.image} alt={item.name} />}
-                                                        <div className="order-item-info">
-                                                            <span className="order-item-name">{item.name}</span>
-                                                            <span className="order-item-qty">x{item.qty}</span>
+                                        <Link key={order.id} to={`/order/${order.id}`} className="order-card-link">
+                                            <div className="order-card">
+                                                <div className="order-header">
+                                                    <span className="order-id">{order.id}</span>
+                                                    <span className="order-status">{order.status}</span>
+                                                </div>
+                                                <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
+                                                <div className="order-items">
+                                                    {order.items.slice(0, 3).map((item) => (
+                                                        <div key={item.id} className="order-item">
+                                                            {item.image && <img src={item.image} alt={item.name} />}
+                                                            <div className="order-item-info">
+                                                                <span className="order-item-name">{item.name}</span>
+                                                                <span className="order-item-qty">x{item.qty}</span>
+                                                            </div>
+                                                            <span className="order-item-price">${(item.price * item.qty).toFixed(2)}</span>
                                                         </div>
-                                                        <span className="order-item-price">${(item.price * item.qty).toFixed(2)}</span>
-                                                    </div>
-                                                ))}
+                                                    ))}
+                                                    {order.items.length > 3 && (
+                                                        <div className="order-item-more">+{order.items.length - 3} more items</div>
+                                                    )}
+                                                </div>
+                                                <div className="order-total">
+                                                    <span>Total</span>
+                                                    <strong>${order.total.toFixed(2)}</strong>
+                                                </div>
+                                                {user.name && (
+                                                    <p className="order-delivery">
+                                                        Paid by <strong>{user.name}</strong>
+                                                    </p>
+                                                )}
+                                                {order.delivery?.address && (
+                                                    <p className="order-delivery">
+                                                        Deliver to: {order.delivery.address}, {order.delivery.suburb} {order.delivery.postcode}
+                                                    </p>
+                                                )}
                                             </div>
-                                            <div className="order-total">
-                                                <span>Total</span>
-                                                <strong>${order.total.toFixed(2)}</strong>
-                                            </div>
-                                            {user.name && (
-                                                <p className='order-delivery'>
-                                                    Paid by <strong>{user.name}</strong>
-                                                </p>
-                                            )}
-                                            {order.delivery?.address && (
-                                                <p className="order-delivery">
-                                                    Deliver to: {order.delivery.address}, {order.delivery.suburb} {order.delivery.postcode}
-                                                </p>
-                                            )}
-                                        </div>
+                                        </Link>
                                     ))}
                                 </div>
                             )}
@@ -108,36 +111,12 @@ function AccountPage() {
                         <>
                             <div className="account-card">
                                 <div className="profile-row">
-                                    <span className="profile-label">Name</span>
-                                    {editingName ? (
-                                        <div className="profile-edit-wrap">
-                                            <input
-                                                type="text"
-                                                className="profile-input"
-                                                value={newName}
-                                                onChange={(e) => setNewName(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && newName.trim()) {
-                                                        updateProfile({ name: newName.trim() });
-                                                        setEditingName(false);
-                                                    }
-                                                    if (e.key === 'Escape') setEditingName(false);
-                                                }}
-                                                autoFocus
-                                            />
-                                            <button className="profile-save" onClick={() => {
-                                                if (newName.trim()) { updateProfile({ name: newName.trim() }); setEditingName(false); }
-                                            }}>
-                                                Save
-                                            </button>
-                                            <button className="profile-cancel" onClick={() => setEditingName(false)}>Cancel</button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <span className="profile-value">{user.name}</span>
-                                            <button className="profile-edit" onClick={() => { setNewName(user.name); setEditingName(true); }}>✎</button>
-                                        </>
-                                    )}
+                                    <span className="profile-label">First Name</span>
+                                    <span className="profile-value">{user.firstName}</span>
+                                </div>
+                                <div className="profile-row">
+                                    <span className="profile-label">Last Name</span>
+                                    <span className="profile-value">{user.lastName}</span>
                                 </div>
                                 <div className="profile-row">
                                     <span className="profile-label">Email</span>

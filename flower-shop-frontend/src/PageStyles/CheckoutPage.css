@@ -43,10 +43,39 @@
 
 .checkout-form .form-group {
     margin-bottom: 14px;
+    position: relative;
 }
 
 .checkout-form .form-group.full {
     grid-column: 1 / -1;
+}
+
+.suburb-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+/* Suburb 下拉框与 postcode 同行 */
+.suburb-group select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.95em;
+    outline: none;
+    background: #fff;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.suburb-group select:focus {
+    border-color: var(--color-primary);
+}
+
+.suburb-group select.input-error {
+    border-color: #e74c3c;
 }
 
 .checkout-form .form-group label {
@@ -179,4 +208,74 @@
     .checkout-layout {
         grid-template-columns: 1fr;
     }
+}
+
+/* -- 已保存地址选择器 -- */
+.saved-address-wrap {
+  margin-bottom: 20px;
+}
+
+.saved-address-wrap label {
+  display: block;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.saved-address-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9em;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+/* -- Stripe 卡片输入 -- */
+.stripe-card-wrap {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.stripe-card-wrap label {
+  display: block;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.stripe-card-input {
+  padding: 12px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.stripe-card-input:focus-within {
+  border-color: #222;
+}
+
+.stripe-card-hint {
+  font-size: 0.78em;
+  color: #bbb;
+  margin: 6px 0 0;
+}
+
+.stripe-error {
+  color: #e74c3c;
+  font-size: 0.85em;
+  margin-top: 8px;
+  border-radius: 8px;
+  font-size: 0.9em;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+  box-sizing: border-box;
 }

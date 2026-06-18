@@ -15,7 +15,8 @@ function SignUpPage() {
   const { register, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -24,7 +25,7 @@ function SignUpPage() {
   const handleSignUp = async (e) => {
     e.preventDefault();
     setError('');
-    if (!name || !email || !password) {
+    if (!firstName || !lastName || !email || !password) {
       setError('Please fill in all fields.');
       return;
     }
@@ -32,7 +33,7 @@ function SignUpPage() {
       setError('Password must be at least 6 characters.');
       return;
     }
-    const result = await register(name, email, password);
+    const result = await register(firstName, lastName, email, password);
     if (result.success) {
       navigate(location.state?.from || '/account');
     } else {
@@ -47,8 +48,12 @@ function SignUpPage() {
           <h1>Create Account</h1>
           <form onSubmit={handleSignUp}>
             <div className="form-group">
-              <label>Full Name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required />
+              <label>First Name</label>
+              <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label>Last Name</label>
+              <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
             </div>
             <div className="form-group">
               <label>Email</label>

@@ -34,6 +34,7 @@ import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import CartToast from './components/Pages/CartToast';
 import Header from './components/Homepages/Header';
+import DeliveryBanner from './components/Homepages/DeliveryBanner';
 import Footer from './Footer';
 import HomePage from './HomePage'
 import CollectionPages from './components/Pages/CollectionPages';
@@ -56,6 +57,7 @@ import LegalNotice from './components/Pages/LegalNotice';
 import PrivacyPolicy from './components/Pages/PrivacyPolicy';
 import TermsOfService from './components/Pages/TermsOfService';
 import CheckoutPage from './components/Pages/CheckoutPage';
+import OrderSummary from './components/Pages/OrderSummary';
 import ScrollToTop from './components/ScrollToTop';
 
 function App() {
@@ -65,6 +67,7 @@ function App() {
       <CartProvider>       {/* 购物车上下文 - 提供 cart/addToCart 等 */}
       <CartToast />        {/* 加入购物车通知弹窗 */}
       <ScrollToTop />      {/* 路由跳转时自动回到顶部 */}
+      <DeliveryBanner />
       <Header />           {/* 全局导航栏，在所有页面顶部显示 */}
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -76,6 +79,7 @@ function App() {
         <Route path="/register" element={<SignUpPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/order/:orderId" element={<OrderSummary />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/delivery-areas" element={<DeliveryArea />} />
         <Route path="/delivery/:slug" element={<DeliveryPage />} />

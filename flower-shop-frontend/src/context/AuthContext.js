@@ -25,14 +25,14 @@ function getAccounts() {
   }
 }
 
-function saveAccount(name, email, password) {
+function saveAccount(firstName, lastName, email, password) {
   const accounts = getAccounts();
   if (accounts.find((a) => a.email === email)) {
     throw new Error('An account with this email already exists.');
   }
-  const newAccount = { name, email, password };
+  const newAccount = { firstName, lastName, name: `${firstName} ${lastName}`, email, password };
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([...accounts, newAccount]));
-  return { name, email };
+  return { firstName, lastName, name: `${firstName} ${lastName}`, email };
 }
 
 function authenticate(email, password) {
@@ -41,7 +41,7 @@ function authenticate(email, password) {
   if (!account || account.password !== password) {
     throw new Error('Invalid email or password.');
   }
-  return { name: account.name, email: account.email };
+  return { firstName: account.firstName, lastName: account.lastName, name: account.name, email: account.email };
 }
 
 export function AuthProvider({ children }) {
@@ -51,10 +51,10 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(false);
 
-  const register = useCallback(async (name, email, password) => {
+  const register = useCallback(async (firstName, lastName, email, password) => {
     setLoading(true);
     try {
-      const userData = saveAccount(name, email, password);
+      const userData = saveAccount(firstName, lastName, email, password);
       localStorage.setItem('current_user', JSON.stringify(userData));
       setUser(userData);
       return { success: true };

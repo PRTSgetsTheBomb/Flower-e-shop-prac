@@ -1,6 +1,6 @@
 # Pisces Flower — E-shop
 
-A flower shop e-commerce frontend built with React, featuring a complete online shopping experience with product browsing, cart management, checkout, and user accounts.
+A flower shop e-commerce frontend built with React, featuring a complete online shopping experience with product browsing, cart management, checkout, user accounts, and blog.
 
 ## Tech Stack
 
@@ -17,16 +17,18 @@ A flower shop e-commerce frontend built with React, featuring a complete online 
 |---|---|
 | **Homepage** | 11 sections: banner, featured products, occasion categories, local florist intro, customer reviews, FAQ, CTA — all with fade-in-up animations |
 | **Catalog** | Product grid with pagination, **sorting** (A–Z, price, date), **filtering** (in-stock, price range), responsive 2-column layout on mobile |
-| **Product Detail** | Image gallery with thumbnail switching, **lightbox** zoom, quantity selector, delivery date picker, gift message, add-to-cart with toast notification |
+| **Product Detail** | Image gallery with thumbnail switching, **lightbox** zoom, quantity selector, delivery date picker, gift message, add-to-cart with feedback, **"You May Also Like" recommendations** |
 | **Search** | Fuzzy keyword search with WooCommerce + WordPress API fallback |
-| **Cart** | useReducer state management, quantity controls, persistent to localStorage, **product recommendations** at bottom |
-| **Checkout** | Delivery form, order summary, order saved to localStorage |
-| **User Account** | Login / register, dashboard with Orders & Profile tabs, **address management** (add/delete), editable name |
+| **Cart** | useReducer state management, quantity controls, persistent to localStorage |
+| **Checkout** | Delivery form, order summary, order saved to localStorage per user |
+| **User Account** | Login / register, dashboard with Orders & Profile tabs, **order history** (items, delivery address, status), address management, editable name |
 | **Product Reviews** | Star rating (1–5), text review, localStorage persistence, anonymous or named |
 | **Mobile** | Hamburger menu, responsive layouts across all pages (768px / 480px breakpoints) |
 | **Animations** | Staggered fade-in-up cards, page section scroll animations via framer-motion |
 | **Policies** | 5 static pages: refund, shipping, privacy, terms, legal notice |
-| **Blog** | Article list & detail from WordPress API |
+| **Blog** | Article list & detail from WordPress API, **featured images**, date, excerpt |
+| **Delivery Areas** | Service area list + dynamic per-area pages with location name & product grid |
+| **Friendly URLs** | Product URLs use flower names (e.g. `/product/alstromeria`) instead of numeric IDs, backward compatible |
 
 ## Getting Started
 
@@ -74,19 +76,19 @@ flower-shop-frontend/
 │   ├── index.html
 │   └── manifest.json
 ├── src/
-│   ├── api/                    # WooCommerce / WordPress API layer
+│   ├── api/                    # WooCommerce / WordPress API layer (products, articles)
 │   ├── components/
 │   │   ├── Pages/              # Route page components (20+ pages)
 │   │   ├── Homepages/          # Homepage section components (11 sections)
 │   │   └── Generic/            # Shared components (Loading, FadeInUp, etc.)
 │   ├── context/                # React Context (Auth, Cart)
-│   ├── utils/                  # Utility functions (orders)
-│   ├── PageStyles/             # CSS for page components
-│   ├── HomePageStyles/         # CSS for homepage sections
+│   ├── utils/                  # Utility functions (orders, slug helpers)
+│   ├── styles/                 # All CSS files
 │   ├── App.js                  # Root component with all routes
 │   ├── HomePage.js             # Homepage assembly
 │   ├── Footer.js
 │   └── index.js
+├── server/                     # (optional) Backend server
 ├── docker-compose.yml
 ├── PROGRESS.md                 # Detailed project status
 └── README.md
