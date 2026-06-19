@@ -68,6 +68,7 @@ function OrderSummary() {
     }
 
     const orderDate = new Date(order.date);
+    const isPickup = order.items?.every(item => item.deliveryMethod === 'pickup');
 
     return (
         <FadeInUp as="section" className="order-summary-page">
@@ -128,10 +129,12 @@ function OrderSummary() {
                                 <h2>Pickup Location</h2>
                                 <p>Pisces Flower Studio<br />Oakleigh South, Melbourne</p>
                             </div>
-                            <div className='os-section'>
-                                <h2>Pickup Time</h2>
-                                <p>{liveStatus?.datePicked ? new Date(liveStatus.datePicked).toLocaleString() : 'Not yet picked up'}</p>
-                            </div>
+                            {order.items?.[0]?.deliveryDate && (
+                                <div className='os-section'>
+                                    <h2>Pickup Time</h2>
+                                    <p>{order.items[0].deliveryDate}</p>
+                                </div>
+                            )}
                         </>
                     )}
 
@@ -155,41 +158,24 @@ function OrderSummary() {
                                     <span className="timeline-dot">{liveStatus?.datePaid || liveStatus?.status ? '✓' : '○'}</span>
                                     <span>Processing</span>
                                 </div>
-                                {/* Shipped — 时间戳或状态（兼容后台直接改） */}
+                                {/* Shipped / Ready for Pickup */}
                                 <div className={`timeline-step ${liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
                                     <span className="timeline-dot">{liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
-                                    <span>Shipped{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
+                                    <span>{isPickup ? 'Ready for Pickup' : 'Shipped'}{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
                                 </div>
-                                {/* Delivered — 时间戳或状态 */}
+                                {/* Delivered / Picked Up */}
                                 <div className={`timeline-step ${liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
                                     <span className="timeline-dot">{liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
-                                    <span>Delivered{liveStatus?.dateCompleted ? ` — ${new Date(liveStatus.dateCompleted).toLocaleDateString()}` : ''}</span>
+                                    <span>{isPickup ? 'Picked Up' : 'Delivered'}{liveStatus?.dateCompleted ? ` — ${new Date(liveStatus.dateCompleted).toLocaleDateString()}` : ''}</span>
                                 </div>
                             </div>
-                            {/* 签收/发货按钮 */}
-                            {liveStatus?.status === 'processing' && (
-                                <button
-                                    className="btn-primary"
-                                    style={{ marginTop: 16, background: '#17a2b8' }}
-                                    onClick={async () => {
-                                        if (!window.confirm('Mark this order as shipped?')) return;
-                                        await fetch(`http://localhost:5000/api/order/${wcId}/status`, {
-                                            method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ status: 'shipped' }),
-                                        });
-                                        setLiveStatus(prev => ({ ...prev, status: 'shipped' }));
-                                    }}
-                                >
-                                    Confirm Received
-                                </button>
-                            )}
+                            {/* 客户操作：确认收货/取货 */}
                             {liveStatus?.status === 'shipped' && (
                                 <button
                                     className="btn-primary"
                                     style={{ marginTop: 16 }}
                                     onClick={async () => {
-                                        if (!window.confirm('Confirm that you have received this order?')) return;
+                                        if (!window.confirm(isPickup ? 'Confirm that you have picked up this order?' : 'Confirm that you have received this order?')) return;
                                         await fetch(`http://localhost:5000/api/order/${wcId}/status`, {
                                             method: 'PUT',
                                             headers: { 'Content-Type': 'application/json' },
@@ -198,12 +184,12 @@ function OrderSummary() {
                                         setLiveStatus(prev => ({ ...prev, status: 'completed' }));
                                     }}
                                 >
-                                    Confirm Received
+                                    {isPickup ? 'Picked Up' : 'Confirm Received'}
                                 </button>
                             )}
                             {liveStatus?.status === 'completed' && (
                                 <p style={{ color: '#28a745', fontWeight: 600, marginTop: 16 }}>
-                                    ✓ Delivered and confirmed
+                                    ✓ {isPickup ? 'Picked up' : 'Delivered and confirmed'}
                                 </p>
                             )}
                         </div>

@@ -240,6 +240,30 @@ function CheckoutPage() {
                         <div className="checkout-form">
                             <div className="form-section">
                                 <h2>Contact</h2>
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label>First Name *</label>
+                                        <input
+                                            type="text"
+                                            name="firstName"
+                                            value={form.firstName}
+                                            onChange={handleChange}
+                                            placeholder="John"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Last Name *</label>
+                                        <input
+                                            type="text"
+                                            name="lastName"
+                                            value={form.lastName}
+                                            onChange={handleChange}
+                                            placeholder="Smith"
+                                            required
+                                        />
+                                    </div>
+                                </div>
                                 <div className="form-group">
                                     <label>Email *</label>
                                     <input
@@ -297,31 +321,7 @@ function CheckoutPage() {
                                             </select>
                                         </div>
                                     )}
-                                    <h2>Delivery</h2>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>First Name *</label>
-                                            <input
-                                                type="text"
-                                                name="firstName"
-                                                value={form.firstName}
-                                                onChange={handleChange}
-                                                placeholder="John"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Last Name *</label>
-                                            <input
-                                                type="text"
-                                                name="lastName"
-                                                value={form.lastName}
-                                                onChange={handleChange}
-                                                placeholder="Smith"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
+                                    <h2>Delivery Address</h2>
                                     <div className="form-group full">
                                         <label>Address *</label>
                                         <input type="text" name="address" value={form.address} onChange={handleChange} required />
