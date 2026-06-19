@@ -271,6 +271,11 @@ app.post('/api/create-order', async (req, res) => {
         product_id: parseInt(item.id, 10),
         quantity: item.qty,
         price: parseFloat(item.sale_price || item.price || 0).toFixed(2),
+        meta_data: [
+          ...(item.deliveryDate ? [{ key: 'Delivery Date', value: item.deliveryDate }] : []),
+          ...(item.deliveryMethod ? [{ key: 'Delivery Method', value: item.deliveryMethod }] : []),
+          ...(item.giftMessage ? [{ key: 'Gift Message', value: item.giftMessage }] : []),
+        ],
       })),
       customer_id: customerId,
       customer_note: items
@@ -326,7 +331,9 @@ app.get('/api/order/:id', async (req, res) => {
         qty: item.quantity,
         price: item.price,
         image: item.image?.src || null,
-        giftMessage: item.meta_data.find(meta => meta.key === 'gift_message')?.value || '',
+        deliveryDate: item.meta_data?.find(m => m.key === 'Delivery Date')?.value || '',
+        deliveryMethod: item.meta_data?.find(m => m.key === 'Delivery Method')?.value || '',
+        giftMessage: item.meta_data?.find(m => m.key === 'Gift Message')?.value || '',
       })),
     })
   } catch (err) {

@@ -78,13 +78,13 @@ function OrderSummary() {
                         <div className="os-status-badge" style={{
                             background: liveStatus?.status === 'completed' ? '#28a745' :
                                 liveStatus?.status === 'shipped' ? '#17a2b8' :
-                                liveStatus?.status === 'processing' ? '#ffc107' : '#6c757d',
+                                    liveStatus?.status === 'processing' ? '#ffc107' : '#6c757d',
                             color: liveStatus?.status === 'processing' ? '#333' : '#fff'
                         }}>
                             {liveStatus?.status === 'processing' ? 'Processing' :
                                 liveStatus?.status === 'shipped' ? 'Shipped' :
-                                liveStatus?.status === 'completed' ? 'Delivered' :
-                                    order.status}
+                                    liveStatus?.status === 'completed' ? 'Delivered' :
+                                        order.status}
                         </div>
                         <h1>Thank You, {user.name}!</h1>
                         <p className="os-subtitle">Your order has been placed successfully.</p>
@@ -111,7 +111,7 @@ function OrderSummary() {
                     </div>
 
                     {/* 配送信息 */}
-                    {order.delivery?.address && (
+                    {order.delivery?.address ? (
                         <div className="os-section">
                             <h2>Delivery Address</h2>
                             <p className="os-delivery-detail">
@@ -122,6 +122,17 @@ function OrderSummary() {
                                 {order.delivery.suburb} {order.delivery.postcode}
                             </p>
                         </div>
+                    ) : (
+                        <>
+                            <div className='os-section'>
+                                <h2>Pickup Location</h2>
+                                <p>Pisces Flower Studio<br />Oakleigh South, Melbourne</p>
+                            </div>
+                            <div className='os-section'>
+                                <h2>Pickup Time</h2>
+                                <p>{liveStatus?.datePicked ? new Date(liveStatus.datePicked).toLocaleString() : 'Not yet picked up'}</p>
+                            </div>
+                        </>
                     )}
 
                     {/* 订单状态时间线 */}
