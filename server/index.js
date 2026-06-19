@@ -40,24 +40,24 @@ const wcApi = new WooCommerceRestApi({
  * Returns: { clientSecret: string }
  */
 app.post('/create-payment-intent', async (req, res) => {
-    try {
-        const { amount } = req.body;
+  try {
+    const { amount } = req.body;
 
-        if (!amount || amount <= 0) {
-            return res.status(400).json({ error: 'Invalid amount' });
-        }
-
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: Math.round(amount * 100), // Stripe 以"分"为单位
-            currency: 'aud',
-            automatic_payment_methods: { enabled: true },
-        });
-
-        res.json({ clientSecret: paymentIntent.client_secret });
-    } catch (err) {
-        console.error('[Stripe] Error creating PaymentIntent:', err.message);
-        res.status(500).json({ error: err.message });
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
     }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Stripe 以"分"为单位
+      currency: 'aud',
+      automatic_payment_methods: { enabled: true },
+    });
+
+    res.json({ clientSecret: paymentIntent.client_secret });
+  } catch (err) {
+    console.error('[Stripe] Error creating PaymentIntent:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============================================================
@@ -298,6 +298,79 @@ app.post('/api/create-order', async (req, res) => {
 });
 
 // ============================================================
+//  订单查询 & 状态更新
+// ============================================================
+
+/**
+ * GET /api/order/:id — 从 WooCommerce 获取订单实时状态（含各步骤时间戳）
+ */
+app.get('/api/order/:id', async (req, res) => {
+  try {
+    const { data } = await wcApi.get(`orders/${req.params.id}`);
+    const findMeta = (key) => data.meta_data?.find(m => m.key === key)?.value || null;
+    res.json({
+      id: data.id,
+      number: data.number,
+      status: data.status,
+      dateCreated: data.date_created,
+      datePaid: data.date_paid,
+      dateShipped: findMeta('_date_shipped'),
+      dateCompleted: data.date_completed,
+      total: data.total,
+      customerNote: data.customer_note,
+      billing: data.billing,
+      shipping: data.shipping,
+      lineItems: data.line_items.map(item => ({
+        id: item.id,
+        name: item.name,
+        qty: item.quantity,
+        price: item.price,
+        image: item.image?.src || null,
+        giftMessage: item.meta_data.find(meta => meta.key === 'gift_message')?.value || '',
+      })),
+    })
+  } catch (err) {
+    const status = err.response?.status || 500;
+    res.status(status).json({ error: err.response?.data?.message || err.message })
+  }
+});
+
+/**
+ * PUT /api/order/:id/status — 更新订单状态并记录时间戳
+ * Body: { status: "processing" | "shipped" | "completed" }
+ *
+ * 状态变更时自动写入对应时间戳到 order meta_data：
+ *   - shipped   → 记录 _date_shipped
+ *   - completed → 记录 _date_completed
+ * 一次变更只打一个时间戳，历史步骤逐步点亮
+ */
+app.put('/api/order/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: 'Status is required.' });
+
+    // 获取当前订单已有的 meta_data
+    const { data: current } = await wcApi.get(`orders/${req.params.id}`);
+    const meta = (current.meta_data || []).map(m => ({ key: m.key, value: m.value }));
+
+    // 为当前状态记录时间戳
+    const now = new Date().toISOString();
+    const timestampKey = `_date_${status}`;
+    const exists = meta.find(m => m.key === timestampKey);
+    if (exists) {
+      exists.value = now;
+    } else {
+      meta.push({ key: timestampKey, value: now });
+    }
+
+    await wcApi.put(`orders/${req.params.id}`, { status, meta_data: meta });
+    res.json({ success: true, status, timestamp: now });
+  } catch (err) {
+    res.status(500).json({ error: err.response?.data?.message || err.message });
+  }
+});
+
+// ============================================================
 //  WooCommerce API 代理（前端通过此接口调用 WooCommerce）
 // ============================================================
 
@@ -357,5 +430,5 @@ app.all('/api/wc/:endpoint*', async (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

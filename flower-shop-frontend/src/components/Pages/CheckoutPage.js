@@ -20,7 +20,7 @@ import FadeInUp from '../Generic/FadeInUp';
 import StripePayment from '../StripePayment';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-import { addOrder } from '../../utils/orders';
+import { addOrder, updateOrderWcId } from '../../utils/orders';
 import deliveryAreas from '../Generic/Areas';
 import '../../PageStyles/CheckoutPage.css';
 
@@ -185,9 +185,14 @@ function CheckoutPage() {
                 paymentMethod: cardInfo?.brand || 'Card',
                 token,
             }),
-        }).then((res) => {
-            if (res.ok) console.log('[Order] Synced to WooCommerce');
-            else console.warn('[Order] Sync failed:', res.status);
+        }).then(async (res) => {
+            if (res.ok) {
+                const data = await res.json();
+                updateOrderWcId(email, order.id, data.orderId);
+                console.log('[Order] Synced to WooCommerce, ID:', data.orderId);
+            } else {
+                console.warn('[Order] Sync failed:', res.status);
+            }
         }).catch((err) => {
             console.warn('[Order] Sync error:', err.message);
         });

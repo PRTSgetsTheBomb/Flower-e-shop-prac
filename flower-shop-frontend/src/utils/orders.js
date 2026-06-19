@@ -37,6 +37,7 @@ export function addOrder(email, items, total, delivery) {
   const userOrders = all[email] || [];
   const order = {
     id: `ORD-${Date.now()}`,
+    wooCommerceId: null,
     date: new Date().toISOString(),
     items: items.map((item) => ({
       id: item.id,
@@ -56,6 +57,20 @@ export function addOrder(email, items, total, delivery) {
   all[email] = [order, ...userOrders];
   saveOrders(all);
   return order;
+}
+
+/**
+ * 更新本地订单的 WooCommerce ID（同步后回写）
+ */
+export function updateOrderWcId(email, localOrderId, wcOrderId) {
+  const all = getAllOrders();
+  const userOrders = all[email] || [];
+  const idx = userOrders.findIndex((o) => o.id === localOrderId);
+  if (idx !== -1) {
+    userOrders[idx] = { ...userOrders[idx], wooCommerceId: wcOrderId };
+    all[email] = userOrders;
+    saveOrders(all);
+  }
 }
 
 /**

@@ -9,7 +9,7 @@
  * - 支持从我的账户页面直接点击订单号跳转过来
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
 import { useAuth } from '../../context/AuthContext';
@@ -19,6 +19,20 @@ import '../../PageStyles/OrderSummary.css';
 function OrderSummary() {
     const { orderId } = useParams();
     const { user } = useAuth();
+    const [liveStatus, setLiveStatus] = useState(null);
+
+    useEffect(() => {
+        const ord = user ? getOrderById(user.email, orderId) : null;
+        const wcId = ord?.wooCommerceId;
+        if (!wcId) {
+            setLiveStatus(null);
+            return;
+        }
+        fetch(`http://localhost:5000/api/order/${wcId}`)
+            .then(res => res.json())
+            .then(data => setLiveStatus(data))
+            .catch(() => { });
+    }, [orderId, user]);
 
     // 未登录
     if (!user) {
@@ -36,6 +50,7 @@ function OrderSummary() {
     }
 
     const order = getOrderById(user.email, orderId);
+    const wcId = order?.wooCommerceId;
 
     // 订单不存在
     if (!order) {
@@ -60,7 +75,17 @@ function OrderSummary() {
                 <div className="order-summary-card">
                     {/* 头部：状态标识 */}
                     <div className="os-header">
-                        <div className="os-status-badge">&#10003; {order.status}</div>
+                        <div className="os-status-badge" style={{
+                            background: liveStatus?.status === 'completed' ? '#28a745' :
+                                liveStatus?.status === 'shipped' ? '#17a2b8' :
+                                liveStatus?.status === 'processing' ? '#ffc107' : '#6c757d',
+                            color: liveStatus?.status === 'processing' ? '#333' : '#fff'
+                        }}>
+                            {liveStatus?.status === 'processing' ? 'Processing' :
+                                liveStatus?.status === 'shipped' ? 'Shipped' :
+                                liveStatus?.status === 'completed' ? 'Delivered' :
+                                    order.status}
+                        </div>
                         <h1>Thank You, {user.name}!</h1>
                         <p className="os-subtitle">Your order has been placed successfully.</p>
                     </div>
@@ -96,6 +121,80 @@ function OrderSummary() {
                                 <br />
                                 {order.delivery.suburb} {order.delivery.postcode}
                             </p>
+                        </div>
+                    )}
+
+                    {/* 订单状态时间线 */}
+                    {(liveStatus || !wcId) && (
+                        <div className="os-section">
+                            <h2>Order Status</h2>
+                            <div className="os-timeline">
+                                <div className="timeline-step completed">
+                                    <span className="timeline-dot">✓</span>
+                                    <span>Order Placed — {new Date(order.date).toLocaleDateString()}</span>
+                                </div>
+                                {liveStatus?.datePaid && (
+                                    <div className="timeline-step completed">
+                                        <span className="timeline-dot">✓</span>
+                                        <span>Payment Confirmed</span>
+                                    </div>
+                                )}
+                                {/* Processing — Payment Confirmed 即表示处理中 */}
+                                <div className={`timeline-step ${liveStatus?.datePaid ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.datePaid ? '✓' : '○'}</span>
+                                    <span>Processing</span>
+                                </div>
+                                {/* Shipped — 有 _date_shipped 时间戳才算 */}
+                                <div className={`timeline-step ${liveStatus?.dateShipped ? 'completed' : liveStatus?.dateCompleted ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.dateShipped || liveStatus?.dateCompleted ? '✓' : '○'}</span>
+                                    <span>Shipped{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
+                                </div>
+                                {/* Delivered — dateCompleted 存在才算 */}
+                                <div className={`timeline-step ${liveStatus?.dateCompleted ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.dateCompleted ? '✓' : '○'}</span>
+                                    <span>Delivered{liveStatus?.dateCompleted ? ` — ${new Date(liveStatus.dateCompleted).toLocaleDateString()}` : ''}</span>
+                                </div>
+                            </div>
+                            {/* 签收/发货按钮 */}
+                            {liveStatus?.status === 'processing' && (
+                                <button
+                                    className="btn-primary"
+                                    style={{ marginTop: 16, background: '#17a2b8' }}
+                                    onClick={async () => {
+                                        if (!window.confirm('Mark this order as shipped?')) return;
+                                        await fetch(`http://localhost:5000/api/order/${wcId}/status`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ status: 'shipped' }),
+                                        });
+                                        setLiveStatus(prev => ({ ...prev, status: 'shipped' }));
+                                    }}
+                                >
+                                    Confirm Received
+                                </button>
+                            )}
+                            {liveStatus?.status === 'shipped' && (
+                                <button
+                                    className="btn-primary"
+                                    style={{ marginTop: 16 }}
+                                    onClick={async () => {
+                                        if (!window.confirm('Confirm that you have received this order?')) return;
+                                        await fetch(`http://localhost:5000/api/order/${wcId}/status`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ status: 'completed' }),
+                                        });
+                                        setLiveStatus(prev => ({ ...prev, status: 'completed' }));
+                                    }}
+                                >
+                                    Confirm Received
+                                </button>
+                            )}
+                            {liveStatus?.status === 'completed' && (
+                                <p style={{ color: '#28a745', fontWeight: 600, marginTop: 16 }}>
+                                    ✓ Delivered and confirmed
+                                </p>
+                            )}
                         </div>
                     )}
 
