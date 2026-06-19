@@ -41,7 +41,6 @@ import FadeInUp from '../Generic/FadeInUp';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { fetchAllProducts } from '../../api/products';
-import ProductCard from '../Pages/ProductDetail';
 import '../../PageStyles/product.css';
 import '../../PageStyles/CartPage.css';
 

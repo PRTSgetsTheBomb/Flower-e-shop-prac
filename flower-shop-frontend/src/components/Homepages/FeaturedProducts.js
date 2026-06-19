@@ -19,6 +19,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fetchAllProducts } from '../../api/products.js';
 import Loading from '../Generic/Loading.js';
+import ProductCard from '../Generic/ProductCard';
 import '../../PageStyles/product.css';
 import '../../HomePageStyles/FeaturedProducts.css';
 
@@ -49,35 +50,7 @@ function FeaturedProducts() {
                 ) : (
                     <div className="product-grid">
                         {products.map((product, i) => (
-                            <motion.div
-                                key={product.id}
-                                initial={{ opacity: 0, y: 40 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.45, delay: i * 0.06, ease: 'easeOut' }}
-                            >
-                                <Link
-                                    to={`/product/${product.nameSlug || product.slug}`}
-                                    className="product-card"
-                                >
-                                    {product.image && (
-                                        <img src={product.image} alt={product.name} className="product-image" />
-                                    )}
-                                    <span className="product-name">{product.name}</span>
-                                    {product.price != null && product.price !== '' && (
-                                        <span className="product-price">
-                                            {product.sale_price ? (
-                                                <>
-                                                    <span className="regular-price">${product.regular_price}</span>
-                                                    <span className="sale-price">${product.sale_price}</span>
-                                                </>
-                                            ) : (
-                                                `$${product.price}`
-                                            )}
-                                        </span>
-                                    )}
-                                </Link>
-                            </motion.div>
+                            <ProductCard key={product.id} product={product} animated delay={i * 0.06} />
                         ))}
                     </div>
                 )}

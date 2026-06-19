@@ -38,14 +38,14 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useParams } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
 import { fetchAllProducts, fetchProductsByCategory } from '../../api/products';
 import occasions from '../Generic/occasions';
 import '../../PageStyles/product.css';
 import '../../PageStyles/CollectionPages.css';
 import Loading from '../Generic/Loading';
+import ProductCard from '../Generic/ProductCard';
 
 const PER_PAGE = 16;
 
@@ -252,39 +252,7 @@ function CollectionPages() {
                         <p className="results-count">{filtered.length} product{filtered.length > 1 ? 's' : ''}</p>
                         <div className="product-grid">
                             {paginated.map((product, i) => (
-                                <motion.div
-                                    key={product.id}
-                                    initial={{ opacity: 0, y: 40 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    viewport={{ once: true }}
-                                    transition={{ duration: 0.45, delay: i * 0.04, ease: 'easeOut' }}
-                                >
-                                    <Link
-                                        to={`/product/${product.nameSlug || product.slug}`}
-                                        className="product-card"
-                                    >
-                                        {product.image && (
-                                            <img
-                                                src={product.image}
-                                                alt={product.name}
-                                                className="product-image"
-                                            />
-                                        )}
-                                        <h3 className="product-name">{product.name}</h3>
-                                        {product.price != null && product.price !== '' && (
-                                            <p className="product-price">
-                                                {product.sale_price ? (
-                                                    <>
-                                                        <span className="regular-price">${product.regular_price}</span>
-                                                        <span className="sale-price">${product.sale_price}</span>
-                                                    </>
-                                                ) : (
-                                                    <span>${product.price}</span>
-                                                )}
-                                            </p>
-                                        )}
-                                    </Link>
-                                </motion.div>
+                                <ProductCard key={product.id} product={product} animated delay={i * 0.04} />
                             ))}
                         </div>
                         {filtered.length > 0 && (

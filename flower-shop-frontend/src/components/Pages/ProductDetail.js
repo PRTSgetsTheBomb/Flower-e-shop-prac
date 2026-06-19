@@ -51,13 +51,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import FadeInUp from '../Generic/FadeInUp';
 import ImageLightbox from '../Pages/ImageLightbox';
 import ProductReviews from './ProductReviews';
 import { fetchProductBySlug, fetchAllProducts } from '../../api/products';
 import { useCart } from '../../context/CartContext';
 import Loading from '../Generic/Loading';
+import ProductCard from '../Generic/ProductCard';
 import '../../PageStyles/ProductDetail.css';
 
 function ProductDetail() {
@@ -112,7 +112,6 @@ function ProductDetail() {
         setDateError('');
         addToCart({ ...product, qty, deliveryMethod, deliveryDate, giftMessage });
         setAdded(true);
-        setTimeout(() => setAdded(false), 2000);
     };
 
     const now = new Date();
@@ -245,35 +244,7 @@ function ProductDetail() {
                         <h2 className="detail-rec-title">You May Also Like</h2>
                         <div className="product-grid">
                             {recommended.map((item, i) => (
-                                <motion.div
-                                    key={item.id}
-                                    initial={{ opacity: 0, y: 40 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    viewport={{ once: true }}
-                                    transition={{ duration: 0.45, delay: i * 0.08, ease: 'easeOut' }}
-                                >
-                                    <Link
-                                        to={`/product/${item.nameSlug || item.slug}`}
-                                        className="product-card"
-                                    >
-                                        {item.image && (
-                                            <img src={item.image} alt={item.name} className="product-image" />
-                                        )}
-                                        <span className="product-name">{item.name}</span>
-                                        {item.price != null && item.price !== '' && (
-                                            <span className="product-price">
-                                                {item.sale_price ? (
-                                                    <>
-                                                        <span className="regular-price">${item.regular_price}</span>
-                                                        <span className="sale-price">${item.sale_price}</span>
-                                                    </>
-                                                ) : (
-                                                    `$${item.price}`
-                                                )}
-                                            </span>
-                                        )}
-                                    </Link>
-                                </motion.div>
+                                <ProductCard key={item.id} product={item} animated delay={i * 0.08} />
                             ))}
                         </div>
                     </FadeInUp>
