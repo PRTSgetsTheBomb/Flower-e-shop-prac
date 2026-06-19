@@ -140,18 +140,18 @@ function OrderSummary() {
                                     </div>
                                 )}
                                 {/* Processing — Payment Confirmed 即表示处理中 */}
-                                <div className={`timeline-step ${liveStatus?.datePaid ? 'completed' : ''}`}>
-                                    <span className="timeline-dot">{liveStatus?.datePaid ? '✓' : '○'}</span>
+                                <div className={`timeline-step ${liveStatus?.datePaid || liveStatus?.status ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.datePaid || liveStatus?.status ? '✓' : '○'}</span>
                                     <span>Processing</span>
                                 </div>
-                                {/* Shipped — 有 _date_shipped 时间戳才算 */}
-                                <div className={`timeline-step ${liveStatus?.dateShipped ? 'completed' : liveStatus?.dateCompleted ? 'completed' : ''}`}>
-                                    <span className="timeline-dot">{liveStatus?.dateShipped || liveStatus?.dateCompleted ? '✓' : '○'}</span>
+                                {/* Shipped — 时间戳或状态（兼容后台直接改） */}
+                                <div className={`timeline-step ${liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
                                     <span>Shipped{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
                                 </div>
-                                {/* Delivered — dateCompleted 存在才算 */}
-                                <div className={`timeline-step ${liveStatus?.dateCompleted ? 'completed' : ''}`}>
-                                    <span className="timeline-dot">{liveStatus?.dateCompleted ? '✓' : '○'}</span>
+                                {/* Delivered — 时间戳或状态 */}
+                                <div className={`timeline-step ${liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
                                     <span>Delivered{liveStatus?.dateCompleted ? ` — ${new Date(liveStatus.dateCompleted).toLocaleDateString()}` : ''}</span>
                                 </div>
                             </div>
