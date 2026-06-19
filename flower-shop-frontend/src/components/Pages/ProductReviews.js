@@ -7,7 +7,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getUserOrders } from '../../utils/orders';
 import '../../PageStyles/ProductReviews.css';
 
 const STORAGE_KEY = 'product_reviews';
@@ -24,7 +23,7 @@ function saveReviews(all) {
 const STAR = '★';
 const STAR_O = '☆';
 
-export default function ProductReviews({ productId, productName }) {
+export default function ProductReviews({ productId, productName, orderId }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,18 +33,49 @@ export default function ProductReviews({ productId, productName }) {
   const [text, setText] = useState('');
   const [submitMsg, setSubmitMsg] = useState('');
   const [hasPurchased, setHasPurchased] = useState(false);
+  const [verifying, setVerifying] = useState(true);
 
   useEffect(() => {
     if (!user) {
       setHasPurchased(false);
+      setVerifying(false);
       return;
     }
-    const orders = getUserOrders(user.email);
-    const purchased = orders.some(order =>
-      order.items.some(item => String(item.id) === String(productId))
-    );
-    setHasPurchased(purchased);
-  }, [user, productId])
+
+    const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
+    const token = localStorage.getItem('jwt_token');
+
+    if (orderId) {
+      fetch(`${API_BASE}/api/order/${orderId}`)
+        .then(r => r.json())
+        .then(data => {
+          setHasPurchased(data.status === 'completed');
+          setVerifying(false);
+        })
+        .catch(() => {
+          setHasPurchased(false);
+          setVerifying(false);
+        });
+    } else if (token) {
+      fetch(`${API_BASE}/api/can-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, productId }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          setHasPurchased(data.canReview);
+          setVerifying(false);
+        })
+        .catch(() => {
+          setHasPurchased(false);
+          setVerifying(false);
+        });
+    } else {
+      setHasPurchased(false);
+      setVerifying(false);
+    }
+  }, [user, productId, orderId])
 
   const refresh = useCallback(() => {
     const all = loadReviews();
@@ -158,7 +188,9 @@ export default function ProductReviews({ productId, productName }) {
 
         {submitMsg && <p className="review-error">{submitMsg}</p>}
 
-        {user ? (
+        {verifying ? (
+          <p className="review-verifying">Checking purchase status...</p>
+        ) : user ? (
           hasPurchased ? (
             <button type="submit" className="review-submit">Submit Review</button>
           ) : (

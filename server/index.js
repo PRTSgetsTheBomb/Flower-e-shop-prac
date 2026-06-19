@@ -378,6 +378,73 @@ app.put('/api/order/:id/status', async (req, res) => {
 });
 
 // ============================================================
+//  检查用户是否可以评价某商品
+// ============================================================
+
+/**
+ * POST /api/can-review
+ * Body: { token, productId }
+ * Returns: { canReview: boolean }
+ *
+ * 检查登录用户是否有该商品的 completed 订单
+ */
+app.post('/api/can-review', async (req, res) => {
+  try {
+    const { token, productId } = req.body;
+    if (!token || !productId) {
+      return res.json({ canReview: false });
+    }
+
+    // 用 JWT 获取 WordPress 用户信息
+    const wpResp = await fetch(`${process.env.WC_URL}/wp-json/wp/v2/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!wpResp.ok) return res.json({ canReview: false });
+
+    const wpUser = await wpResp.json();
+
+    // 通过 WooCommerce 获取客户邮箱
+    let customerEmail = '';
+    try {
+      const { data: customer } = await wcApi.get(`customers/${wpUser.id}`);
+      customerEmail = customer.email || '';
+    } catch {}
+
+    // 获取该用户的所有已完成的 WooCommerce 订单
+    let orders = [];
+    try {
+      const byCustomer = await wcApi.get('orders', {
+        customer: wpUser.id,
+        status: 'completed',
+        per_page: 100,
+      });
+      orders = byCustomer.data;
+    } catch {}
+
+    // 如果按 customer_id 没查到，改用 email 搜索
+    if (orders.length === 0 && customerEmail) {
+      try {
+        const byEmail = await wcApi.get('orders', {
+          search: customerEmail,
+          status: 'completed',
+          per_page: 100,
+        });
+        orders = byEmail.data;
+      } catch {}
+    }
+
+    const canReview = orders.some(order =>
+      order.line_items?.some(item => String(item.product_id) === String(productId))
+    );
+
+    res.json({ canReview });
+  } catch (err) {
+    console.error('[CanReview] Error:', err.message);
+    res.json({ canReview: false });
+  }
+});
+
+// ============================================================
 //  WooCommerce API 代理（前端通过此接口调用 WooCommerce）
 // ============================================================
 

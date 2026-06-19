@@ -188,9 +188,18 @@ function OrderSummary() {
                                 </button>
                             )}
                             {liveStatus?.status === 'completed' && (
-                                <p style={{ color: '#28a745', fontWeight: 600, marginTop: 16 }}>
-                                    ✓ {isPickup ? 'Picked up' : 'Delivered and confirmed'}
-                                </p>
+                                <>
+                                    <p style={{ color: '#28a745', fontWeight: 600, marginTop: 16 }}>
+                                        ✓ {isPickup ? 'Picked up' : 'Delivered and confirmed'}
+                                    </p>
+                                    <Link
+                                        to={`/product/${order.items[0]?.nameSlug || order.items[0]?.slug || order.items[0]?.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}?review&order=${wcId || ''}`}
+                                        className="btn-primary"
+                                        style={{ marginTop: 12, display: 'inline-block', textDecoration: 'none' }}
+                                    >
+                                        Write a Review
+                                    </Link>
+                                </>
                             )}
                         </div>
                     )}

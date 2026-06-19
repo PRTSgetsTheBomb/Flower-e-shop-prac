@@ -50,7 +50,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import FadeInUp from '../Generic/FadeInUp';
 import ImageLightbox from '../Pages/ImageLightbox';
@@ -62,6 +62,8 @@ import '../../PageStyles/ProductDetail.css';
 
 function ProductDetail() {
     const { slug } = useParams();
+    const [searchParams] = useSearchParams();
+    const reviewOrderId = searchParams.get('order');
     const { addToCart } = useCart();
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -289,7 +291,7 @@ function ProductDetail() {
 
             {/* 商品评价 */}
             <div className="container">
-                <ProductReviews productId={product.id} productName={product.name} />
+                <ProductReviews productId={product.id} productName={product.name} orderId={reviewOrderId} />
             </div>
         </FadeInUp>
     );

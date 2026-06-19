@@ -42,6 +42,8 @@ export function addOrder(email, items, total, delivery) {
     items: items.map((item) => ({
       id: item.id,
       name: item.name,
+      nameSlug: item.nameSlug || item.slug || '',
+      slug: item.slug || '',
       qty: item.qty,
       price: parseFloat(item.sale_price) || parseFloat(item.price) || 0,
       image: item.image,
