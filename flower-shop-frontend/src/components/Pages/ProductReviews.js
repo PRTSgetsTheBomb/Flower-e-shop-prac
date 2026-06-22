@@ -200,6 +200,13 @@ export default function ProductReviews({ productId, productName, orderId }) {
                 )}
               </div>
               <p className="review-text">{r.text}</p>
+              {r.reply && (
+                <div className="review-reply">
+                  <span className="review-reply-author">{r.reply.author} — Store Owner</span>
+                  <p className="review-reply-text">{r.reply.text}</p>
+                  <span className="review-reply-date">{new Date(r.reply.date).toLocaleDateString()}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>

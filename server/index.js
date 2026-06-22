@@ -445,6 +445,261 @@ app.post('/api/can-review', async (req, res) => {
 });
 
 // ============================================================
+//  评价 CRUD（本地 JSON 文件存储）
+// ============================================================
+
+const fs = require('fs');
+const path = require('path');
+const REVIEWS_FILE = path.join(__dirname, 'reviews.json');
+
+function readReviews() {
+  try { return JSON.parse(fs.readFileSync(REVIEWS_FILE, 'utf-8')); }
+  catch { return {}; }
+}
+
+function writeReviews(data) {
+  fs.writeFileSync(REVIEWS_FILE, JSON.stringify(data, null, 2));
+}
+
+/**
+ * GET /api/reviews?productId=xxx
+ * 获取某商品的所有评价（含来自 WooCommerce 的商家回复）
+ */
+app.get('/api/reviews', async (req, res) => {
+  const { productId } = req.query;
+  const all = readReviews();
+  const reviews = all[productId] || [];
+
+  // 对有 wc_review_id 的评价，从 WordPress 拉取商家回复
+  for (const review of reviews) {
+    if (!review.wc_review_id) continue;
+    try {
+      const resp = await fetch(
+        `${process.env.WC_URL}/wp-json/wp/v2/comments?parent=${review.wc_review_id}`
+      );
+      if (!resp.ok) continue;
+      const comments = await resp.json();
+      const adminReply = comments.find(c => c.author_name !== review.author);
+      if (adminReply) {
+        review.reply = {
+          author: adminReply.author_name,
+          text: adminReply.content?.rendered?.replace(/<[^>]+>/g, '') || '',
+          date: adminReply.date,
+        };
+      }
+    } catch {}
+  }
+
+  res.json(reviews);
+});
+
+/**
+ * POST /api/reviews
+ * Body: { token, productId, rating, text }
+ * 提交评价（需 JWT 验证），同时同步到 WooCommerce
+ */
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { token, productId, rating, text } = req.body;
+    if (!token || !productId || !rating || !text) {
+      return res.json({ success: false, error: 'Missing required fields.' });
+    }
+
+    // 用 JWT 获取用户信息
+    const wpResp = await fetch(`${process.env.WC_URL}/wp-json/wp/v2/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!wpResp.ok) return res.json({ success: false, error: 'Invalid token.' });
+    const wpUser = await wpResp.json();
+
+    const review = {
+      id: `rev_${Date.now()}`,
+      author: wpUser.name,
+      rating: Math.min(5, Math.max(1, Number(rating))),
+      text,
+      date: new Date().toISOString(),
+    };
+
+    // 写入本地 JSON
+    const all = readReviews();
+    all[productId] = [review, ...(all[productId] || [])];
+    writeReviews(all);
+
+    // 同步到 WooCommerce 商品评价（不影响本地保存）
+    try {
+      const wcRes = await wcApi.post('products/reviews', {
+        product_id: Number(productId),
+        reviewer: wpUser.name,
+        reviewer_email: wpUser.email || '',
+        rating: Number(rating),
+        review: text,
+        status: 'approved',
+      });
+      const wcId = wcRes.data?.id;
+      if (wcId) {
+        console.log(`[Reviews] Synced to WooCommerce: review #${wcId} for product #${productId}`);
+        const updated = readReviews();
+        const target = updated[productId]?.find((r) => r.id === review.id);
+        if (target) target.wc_review_id = wcId;
+        writeReviews(updated);
+      } else {
+        console.warn('[Reviews] WooCommerce response:', JSON.stringify(wcRes.data));
+      }
+    } catch (wcErr) {
+      console.warn('[Reviews] WooCommerce sync error:',
+        wcErr.response?.status,
+        JSON.stringify(wcErr.response?.data || wcErr.message)
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Reviews] POST error:', err.message);
+    res.json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/reviews
+ * Body: { token, reviewId }
+ * 删除评价（需 JWT 验证 + 验证所有权），同时从 WooCommerce 删除
+ */
+app.delete('/api/reviews', async (req, res) => {
+  try {
+    const { token, reviewId } = req.body;
+    if (!token || !reviewId) {
+      return res.json({ success: false, error: 'Missing required fields.' });
+    }
+
+    // 用 JWT 获取用户信息
+    const wpResp = await fetch(`${process.env.WC_URL}/wp-json/wp/v2/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!wpResp.ok) return res.json({ success: false, error: 'Invalid token.' });
+    const wpUser = await wpResp.json();
+
+    const all = readReviews();
+    // 在所有商品中查找并删除匹配的评价
+    for (const pid of Object.keys(all)) {
+      const before = all[pid].length;
+      const deleted = all[pid].find((r) => r.id === reviewId && r.author === wpUser.name);
+      all[pid] = all[pid].filter((r) => r.id !== reviewId || r.author !== wpUser.name);
+      if (all[pid].length !== before) {
+        // 同步删除 WooCommerce 评价
+        const wcId = deleted?.wc_review_id;
+        if (wcId) {
+          try {
+            await wcApi.delete(`products/reviews/${wcId}`, { force: true });
+            console.log(`[Reviews] Deleted WooCommerce review #${wcId}`);
+          } catch (wcErr) {
+            console.warn('[Reviews] WooCommerce delete error:', wcErr.response?.status, JSON.stringify(wcErr.response?.data || wcErr.message));
+          }
+        }
+        break;
+      }
+    }
+    writeReviews(all);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Reviews] DELETE error:', err.message);
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+//  商家回复评价
+//  PUT /api/reviews/reply
+//  Body: { token, reviewId, text }
+//  需要 admin 级别的 JWT token
+// ============================================================
+
+app.put('/api/reviews/reply', async (req, res) => {
+  try {
+    const { token, reviewId, text } = req.body;
+    if (!token || !reviewId || !text) {
+      return res.json({ success: false, error: 'Missing required fields.' });
+    }
+
+    // 验证 token 是否为管理员
+    const wpResp = await fetch(`${process.env.WC_URL}/wp-json/wp/v2/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!wpResp.ok) return res.json({ success: false, error: 'Invalid token.' });
+    const wpUser = await wpResp.json();
+
+    // 检查是否有管理员权限（editor 或 administrator）
+    const adminRoles = ['administrator', 'editor', 'shop_manager'];
+    const isAdmin = wpUser.roles?.some(r => adminRoles.includes(r));
+    if (!isAdmin) {
+      return res.json({ success: false, error: 'Only store admins can reply to reviews.' });
+    }
+
+    // 在所有商品中查找该评价并添加回复
+    const all = readReviews();
+    let found = false;
+    for (const pid of Object.keys(all)) {
+      const review = all[pid].find(r => r.id === reviewId);
+      if (review) {
+        review.reply = {
+          author: wpUser.name,
+          text: text.trim(),
+          date: new Date().toISOString(),
+        };
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      return res.json({ success: false, error: 'Review not found.' });
+    }
+
+    writeReviews(all);
+
+    res.json({ success: true });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Reviews] Reply error:', err.message);
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+//  手动补传：将 reviews.json 中未同步的评价写入 WooCommerce
+//  访问一次 GET /api/sync-reviews 即可触发
+// ============================================================
+
+app.get('/api/sync-reviews', async (req, res) => {
+  const all = readReviews();
+  let synced = 0, failed = 0;
+
+  for (const [productId, reviews] of Object.entries(all)) {
+    for (const review of reviews) {
+      if (review.wc_review_id) continue;
+      try {
+        const wcRes = await wcApi.post('products/reviews', {
+          product_id: Number(productId),
+          reviewer: review.author,
+          reviewer_email: '',
+          rating: Number(review.rating),
+          review: review.text,
+          status: 'approved',
+        });
+        const wcId = wcRes.data?.id;
+        if (wcId) { review.wc_review_id = wcId; synced++; }
+        else { failed++; }
+      } catch { failed++; }
+    }
+  }
+
+  writeReviews(all);
+  res.json({ synced, failed, total: synced + failed });
+  console.log(`[Sync] Reviews backfill: ${synced} synced, ${failed} failed`);
+});
+
+// ============================================================
 //  WooCommerce API 代理（前端通过此接口调用 WooCommerce）
 // ============================================================
 
