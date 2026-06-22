@@ -16,12 +16,14 @@
  * 对接真实后端后无需修改此文件逻辑，只需替换 AuthContext 中的实现
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
 import { useAuth } from '../../context/AuthContext';
 import { getUserOrders } from '../../utils/orders';
 import '../../PageStyles/AccountPage.css';
+
+const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
 
 function AccountPage() {
     const { user, login, logout, updateProfile, addAddress, removeAddress, updateAddress, loading } = useAuth();
@@ -38,6 +40,29 @@ function AccountPage() {
     const [showPwd, setShowPwd] = useState(false); // 密码显隐切换
     const [error, setError] = useState('');
     const orders = user ? getUserOrders(user.email) : [];
+    const [liveStatuses, setLiveStatuses] = useState({});
+
+    // 从 WooCommerce 同步订单状态
+    useEffect(() => {
+        if (!orders.length) return;
+        const wcOrders = orders.filter(o => o.wooCommerceId);
+        if (!wcOrders.length) return;
+
+        const fetchStatus = async (order) => {
+            try {
+                const res = await fetch(`${API_BASE}/api/order/${order.wooCommerceId}`);
+                if (!res.ok) return null;
+                const data = await res.json();
+                return { id: order.id, status: data.status };
+            } catch { return null; }
+        };
+
+        Promise.all(wcOrders.map(fetchStatus)).then(results => {
+            const map = {};
+            results.forEach(r => { if (r) map[r.id] = r.status; });
+            setLiveStatuses(map);
+        });
+    }, [orders.length]);
 
     if (user) {
         return (
@@ -68,7 +93,7 @@ function AccountPage() {
                                             <div className="order-card">
                                                 <div className="order-header">
                                                     <span className="order-id">{order.id}</span>
-                                                    <span className="order-status">{order.status}</span>
+                                                    <span className="order-status">{liveStatuses[order.id] || order.status}</span>
                                                 </div>
                                                 <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
                                                 <div className="order-items">

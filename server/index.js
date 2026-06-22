@@ -250,7 +250,7 @@ app.post('/api/create-order', async (req, res) => {
     const orderData = {
       payment_method: 'stripe',
       payment_method_title: 'Stripe (Card)',
-      set_paid: true,
+      status: 'on-hold',   // 商家在 WooCommerce 后台手动改为 processing（不用 set_paid，因为 WooCommerce 会覆盖 status）
       billing: {
         first_name: customer?.firstName || '',
         last_name: customer?.lastName || '',
@@ -344,11 +344,12 @@ app.get('/api/order/:id', async (req, res) => {
 
 /**
  * PUT /api/order/:id/status — 更新订单状态并记录时间戳
- * Body: { status: "processing" | "shipped" | "completed" }
+ * Body: { status: "processing" | "shipped" | "readyforpick" | "completed" }
  *
  * 状态变更时自动写入对应时间戳到 order meta_data：
- *   - shipped   → 记录 _date_shipped
- *   - completed → 记录 _date_completed
+ *   - shipped       → 记录 _date_shipped
+ *   - readyforpick  → 记录 _date_readyforpick
+ *   - completed     → 记录 _date_completed
  * 一次变更只打一个时间戳，历史步骤逐步点亮
  */
 app.put('/api/order/:id/status', async (req, res) => {

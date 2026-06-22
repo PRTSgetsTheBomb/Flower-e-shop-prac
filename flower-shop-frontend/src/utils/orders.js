@@ -54,7 +54,7 @@ export function addOrder(email, items, total, delivery) {
     total,
     delivery,
     paymentMethod: delivery?.paymentMethod || null,
-    status: 'Paid',
+    status: 'On Hold',  // 初始状态为 On Hold，等待商家在后台改为 Processing
   };
   all[email] = [order, ...userOrders];
   saveOrders(all);

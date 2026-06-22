@@ -77,17 +77,24 @@ function OrderSummary() {
                 <div className="order-summary-card">
                     {/* 头部：状态标识 */}
                     <div className="os-header">
-                        <div className="os-status-badge" style={{
-                            background: liveStatus?.status === 'completed' ? '#28a745' :
-                                liveStatus?.status === 'shipped' ? '#17a2b8' :
-                                    liveStatus?.status === 'processing' ? '#ffc107' : '#6c757d',
-                            color: liveStatus?.status === 'processing' ? '#333' : '#fff'
-                        }}>
-                            {liveStatus?.status === 'processing' ? 'Processing' :
-                                liveStatus?.status === 'shipped' ? 'Shipped' :
-                                    liveStatus?.status === 'completed' ? 'Delivered' :
-                                        order.status}
-                        </div>
+                        {(() => {
+                            const s = liveStatus?.status || order.status;
+                            const bg = s === 'completed' ? '#28a745' :
+                                s === 'shipped' || s === 'readyforpick' ? '#17a2b8' :
+                                    s === 'processing' ? '#ffc107' :
+                                        s === 'on-hold' || s === 'On Hold' ? '#fd7e14' : '#6c757d';
+                            const color = s === 'processing' || s === 'on-hold' || s === 'On Hold' ? '#333' : '#fff';
+                            const label = s === 'processing' ? 'Processing' :
+                                s === 'shipped' ? 'Shipped' :
+                                    s === 'readyforpick' ? 'Ready for Pickup' :
+                                        s === 'completed' ? 'Delivered' :
+                                            s === 'on-hold' || s === 'On Hold' ? 'Awaiting Review' : s;
+                            return (
+                                <div className="os-status-badge" style={{ background: bg, color }}>
+                                    {label}
+                                </div>
+                            );
+                        })()}
                         <h1>Thank You, {user.name}!</h1>
                         <p className="os-subtitle">Your order has been placed successfully.</p>
                     </div>
@@ -159,15 +166,22 @@ function OrderSummary() {
                                         <span>Payment Confirmed</span>
                                     </div>
                                 )}
-                                {/* Processing — Payment Confirmed 即表示处理中 */}
-                                <div className={`timeline-step ${liveStatus?.datePaid || liveStatus?.status ? 'completed' : ''}`}>
-                                    <span className="timeline-dot">{liveStatus?.datePaid || liveStatus?.status ? '✓' : '○'}</span>
+                                {/* Awaiting Review — 商家在后台确认前 */}
+                                {liveStatus?.status === 'on-hold' && (
+                                    <div className="timeline-step completed">
+                                        <span className="timeline-dot">⏳</span>
+                                        <span>Awaiting Review — merchant will confirm your order shortly</span>
+                                    </div>
+                                )}
+                                {/* Processing — 商家手动改为 processing 后才点亮 */}
+                                <div className={`timeline-step ${liveStatus?.status === 'processing' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.status === 'processing' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
                                     <span>Processing</span>
                                 </div>
                                 {/* Shipped / Ready for Pickup */}
-                                <div className={`timeline-step ${liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
-                                    <span className="timeline-dot">{liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
-                                    <span>{isPickup ? 'Ready for Pickup' : 'Shipped'}{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
+                                <div className={`timeline-step ${liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpick' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpick' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
+                                    <span>{(liveStatus?.status === 'readyforpick') ? 'Ready for Pickup' : isPickup ? 'Ready for Pickup' : 'Shipped'}{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
                                 </div>
                                 {/* Delivered / Picked Up */}
                                 <div className={`timeline-step ${liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
@@ -176,7 +190,7 @@ function OrderSummary() {
                                 </div>
                             </div>
                             {/* 客户操作：确认收货/取货 */}
-                            {liveStatus?.status === 'shipped' && (
+                            {(liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpick') && (
                                 <button
                                     className="btn-primary"
                                     style={{ marginTop: 16 }}
