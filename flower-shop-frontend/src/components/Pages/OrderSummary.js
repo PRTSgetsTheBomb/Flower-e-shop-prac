@@ -12,6 +12,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
+import SaveAddressBtn from './SaveAddressBtn';
 import { useAuth } from '../../context/AuthContext';
 import { getOrderById } from '../../utils/orders';
 import '../../PageStyles/OrderSummary.css';
@@ -113,16 +114,18 @@ function OrderSummary() {
 
                     {/* 配送信息 */}
                     {order.delivery?.address ? (
-                        <div className="os-section">
-                            <h2>Delivery Address</h2>
-                            <p className="os-delivery-detail">
-                                {order.delivery.firstName} {order.delivery.lastName}
-                                <br />
-                                {order.delivery.address}
-                                <br />
-                                {order.delivery.suburb} {order.delivery.postcode}
-                            </p>
-                        </div>
+                        <>
+                            <div className="os-section">
+                                <h2>Delivery Address</h2>
+                                <p className="os-delivery-detail">
+                                    {order.delivery.firstName} {order.delivery.lastName}
+                                    <br />
+                                    {order.delivery.address}
+                                    <br />
+                                    {order.delivery.suburb} {order.delivery.postcode}
+                                </p>
+                            </div>
+                        </>
                     ) : (
                         <>
                             <div className='os-section'>
@@ -137,6 +140,9 @@ function OrderSummary() {
                             )}
                         </>
                     )}
+
+                    {/* 保存地址到账户 */}
+                    {order.delivery?.address && <SaveAddressBtn delivery={order.delivery} />}
 
                     {/* 订单状态时间线 */}
                     {(liveStatus || !wcId) && (

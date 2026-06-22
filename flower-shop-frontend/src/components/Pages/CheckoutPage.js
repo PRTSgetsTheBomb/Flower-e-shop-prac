@@ -57,14 +57,18 @@ function CheckoutPage() {
     };
 
     // 用一个对象管理所有表单字段，handleChange 统一更新
-    const [form, setForm] = useState({
-        firstName: user?.addresses?.[0]?.firstName || '',
-        lastName: user?.addresses?.[0]?.lastName || '',
-        email: user?.email || '',
-        phone: '',
-        address: '',
-        suburb: '',
-        postcode: '',
+    const [form, setForm] = useState(() => {
+        let savedSuburb = '';
+        try { savedSuburb = localStorage.getItem('checkout_suburb') || ''; } catch { }
+        return {
+            firstName: user?.addresses?.[0]?.firstName || '',
+            lastName: user?.addresses?.[0]?.lastName || '',
+            email: user?.email || '',
+            phone: '',
+            address: '',
+            suburb: savedSuburb,
+            postcode: '',
+        };
     });
 
     const handleChange = (e) => {
@@ -77,6 +81,10 @@ function CheckoutPage() {
             } else {
                 setPhoneError('');
             }
+        }
+        // Suburb 同步到 localStorage
+        if (name === 'suburb') {
+            try { localStorage.setItem('checkout_suburb', value); } catch { }
         }
     };
 
@@ -308,7 +316,7 @@ function CheckoutPage() {
                                                             suburb: addr.suburb || '',
                                                             postcode: addr.postcode || '',
                                                         }));
-                                                        setSuburbError('');
+                                                        setSuburbError(''); try { localStorage.setItem('checkout_suburb', addr.suburb || ''); } catch { }
                                                     }
                                                 }}
                                             >
@@ -384,7 +392,7 @@ function CheckoutPage() {
                                         <span>Shipping: </span>
                                         <span>${DELIVERY_FEE.toFixed(2)}</span>
                                     </div>
-                                    <div> 
+                                    <div>
                                         <p><strong>Free shipping for orders over $150!</strong></p>
                                     </div>
                                 </>

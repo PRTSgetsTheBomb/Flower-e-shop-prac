@@ -433,12 +433,33 @@
   margin-bottom: 8px;
 }
 
+.address-actions {
+  display: flex;
+  gap: 4px;
+}
+
 .address-label {
   font-size: 0.85em;
   font-weight: 700;
   color: var(--color-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.address-edit {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.address-edit:hover {
+  color: var(--color-primary);
+  background: #f0f7ff;
 }
 
 .address-delete {

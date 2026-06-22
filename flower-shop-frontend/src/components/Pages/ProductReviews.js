@@ -195,7 +195,7 @@ export default function ProductReviews({ productId, productName, orderId }) {
             <button type="submit" className="review-submit">Submit Review</button>
           ) : (
             <button type="button" className="review-submit review-submit-disabled" disabled>
-              You must purchase this product to review
+              You must purchase and receive this product to review
             </button>
           )
         ) : (

@@ -53,6 +53,19 @@ function removeLocalAddress(email, addressId) {
   }
 }
 
+function updateLocalAddress(email, addressId, updates) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ADDRESSES_KEY)) || {};
+    all[email] = (all[email] || []).map((a) =>
+      a.id === addressId ? { ...a, ...updates } : a
+    );
+    localStorage.setItem(ADDRESSES_KEY, JSON.stringify(all));
+    return all[email];
+  } catch {
+    return [];
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
@@ -197,8 +210,18 @@ export function AuthProvider({ children }) {
     return { success: true };
   }, [user]);
 
+  // ---------- 更新地址 ----------
+  const updateAddress = useCallback(async (addressId, updates) => {
+    if (!user) return { success: false, error: 'Not logged in.' };
+    const updatedList = updateLocalAddress(user.email, addressId, updates);
+    const newUser = { ...user, addresses: updatedList };
+    localStorage.setItem('current_user', JSON.stringify(newUser));
+    setUser(newUser);
+    return { success: true };
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateProfile, addAddress, removeAddress, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateProfile, addAddress, removeAddress, updateAddress, loading }}>
       {children}
     </AuthContext.Provider>
   );
