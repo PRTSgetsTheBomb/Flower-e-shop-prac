@@ -80,14 +80,14 @@ function OrderSummary() {
                         {(() => {
                             const s = liveStatus?.status || order.status;
                             const bg = s === 'completed' ? '#28a745' :
-                                s === 'shipped' || s === 'readyforpick' ? '#17a2b8' :
+                                s === 'shipped' || s === 'readyforpickup' ? '#17a2b8' :
                                     s === 'processing' ? '#ffc107' :
                                         s === 'on-hold' || s === 'On Hold' ? '#fd7e14' : '#6c757d';
                             const color = s === 'processing' || s === 'on-hold' || s === 'On Hold' ? '#333' : '#fff';
                             const label = s === 'processing' ? 'Processing' :
                                 s === 'shipped' ? 'Shipped' :
-                                    s === 'readyforpick' ? 'Ready for Pickup' :
-                                        s === 'completed' ? 'Delivered' :
+                                    s === 'readyforpickup' ? 'Ready for Pickup' :
+                                        s === 'completed' ? (isPickup ? 'Picked Up' : 'Delivered') :
                                             s === 'on-hold' || s === 'On Hold' ? 'Awaiting Review' : s;
                             return (
                                 <div className="os-status-badge" style={{ background: bg, color }}>
@@ -174,14 +174,14 @@ function OrderSummary() {
                                     </div>
                                 )}
                                 {/* Processing — 商家手动改为 processing 后才点亮 */}
-                                <div className={`timeline-step ${liveStatus?.status === 'processing' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
-                                    <span className="timeline-dot">{liveStatus?.status === 'processing' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
+                                <div className={`timeline-step ${liveStatus?.status === 'processing' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.status === 'processing' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
                                     <span>Processing</span>
                                 </div>
                                 {/* Shipped / Ready for Pickup */}
-                                <div className={`timeline-step ${liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpick' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
-                                    <span className="timeline-dot">{liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpick' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
-                                    <span>{(liveStatus?.status === 'readyforpick') ? 'Ready for Pickup' : isPickup ? 'Ready for Pickup' : 'Shipped'}{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
+                                <div className={`timeline-step ${liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
+                                    <span>{(liveStatus?.status === 'readyforpickup') ? 'Ready for Pickup' : isPickup ? 'Ready for Pickup' : 'Shipped'}{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
                                 </div>
                                 {/* Delivered / Picked Up */}
                                 <div className={`timeline-step ${liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
@@ -190,7 +190,7 @@ function OrderSummary() {
                                 </div>
                             </div>
                             {/* 客户操作：确认收货/取货 */}
-                            {(liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpick') && (
+                            {(liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpickup') && (
                                 <button
                                     className="btn-primary"
                                     style={{ marginTop: 16 }}
