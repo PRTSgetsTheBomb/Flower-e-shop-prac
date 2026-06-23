@@ -24,6 +24,9 @@ services:
       WORDPRESS_DB_USER: wordpress
       WORDPRESS_DB_PASSWORD: wordpress
       WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_CONFIG_EXTRA: >
+        define('JWT_AUTH_SECRET_KEY', '5aa3b311f801f49554d11bbc16051af3c9f85fd0791c2304ec8f32a13b1418b7012f273f7d69728f0baa751e6fb0df35f45570b2b42c072036fd695371bca4a9');
+        define('JWT_AUTH_CORS_ENABLE', true);
     volumes:
       - wp_data:/var/www/html
 

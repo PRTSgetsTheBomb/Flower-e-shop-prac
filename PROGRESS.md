@@ -40,6 +40,7 @@
 | **文章系统**   | articles.js API 模块，从 WordPress REST API 获取，支持 `_embed` 封面图 |
 | **CSS 架构**  | 所有 CSS 集中到 `src/styles/` 目录统一管理 |
 | **代码注释**   | 所有 JS 源文件及 CSS 文件添加了设计说明注释 |
+| **邮件通知**   | server/mail.js 基于 Nodemailer + Brevo SMTP，下单自动发送订单确认邮件 |
 
 ## 路由清单
 
@@ -76,13 +77,13 @@
 
 ### 客户端
 怎么能够让商家和客户更好的联动
-1. 发一个Confirmation Email或短信（订单状态）
+~~1. 发一个Confirmation Email或短信（订单状态）~~ ✅ 已实现 - Brevo SMTP 订单确认邮件
 2. 用户体验优化
 
 ### 商家端
 |运费| 计算到不同地区的运费
-Orders界面：分类Shipped/Pickup/Delivered/PickedUp
-可以在Dashboard看到当前有多少订单需要处理（有多少要配送，有多少要自提），每天营业额是多少，Sales相关数据
+// Orders界面：分类Shipped/Pickup/Delivered/PickedUp
+// 可以在Dashboard看到当前有多少订单需要处理（有多少要配送，有多少要自提），每天营业额是多少，Sales相关数据
 
 ## 优化建议
 | ProductDetail界面 | 告诉用户哪些花支持配送，哪些花仅支持自提                             |

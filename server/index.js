@@ -16,6 +16,7 @@ const cors = require('cors');
 require('dotenv').config();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
+const { sendOrderConfirmation } = require('./mail');
 
 const app = express();
 app.use(cors());
@@ -282,11 +283,32 @@ app.post('/api/create-order', async (req, res) => {
         .filter(item => item.giftMessage)
         .map(item => `Gift Message for "${item.name}": ${item.giftMessage}`)
         .join(' | '),
+      meta_data: [
+        {
+          key: 'delivery_method',
+          value: items.some(item => item.deliveryMethod === 'delivery') ? 'Delivery' : 'Pickup',
+        },
+      ],
     };
 
     const { data } = await wcApi.post('orders', orderData);
 
     console.log('[Order] Created:', data.id, 'for', customer?.email || 'guest');
+
+    // 异步发送订单确认邮件（不阻塞响应）
+    const customerName = [customer?.firstName, customer?.lastName].filter(Boolean).join(' ') || 'Valued Customer';
+    sendOrderConfirmation({
+      to: customer?.email,
+      name: customerName,
+      orderId: data.id,
+      total: parseFloat(data.total),
+      items: items.map((item) => ({
+        name: item.name,
+        qty: item.qty,
+        price: parseFloat(item.sale_price || item.price || 0),
+      })),
+      status: data.status,
+    });
 
     res.json({
       success: true,
