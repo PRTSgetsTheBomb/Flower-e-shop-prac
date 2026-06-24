@@ -16,7 +16,7 @@ const cors = require('cors');
 require('dotenv').config();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
-const { sendOrderConfirmation } = require('./mail');
+const { sendOrderConfirmation, sendOrderShipped, sendOrderReadyForPickup, sendOrderCompleted } = require('./mail');
 
 const app = express();
 app.use(cors());
@@ -297,6 +297,7 @@ app.post('/api/create-order', async (req, res) => {
 
     // 异步发送订单确认邮件（不阻塞响应）
     const customerName = [customer?.firstName, customer?.lastName].filter(Boolean).join(' ') || 'Valued Customer';
+    const deliveryMethod = items.some(item => item.deliveryMethod === 'delivery') ? 'Delivery' : 'Pickup';
     sendOrderConfirmation({
       to: customer?.email,
       name: customerName,
@@ -308,6 +309,10 @@ app.post('/api/create-order', async (req, res) => {
         price: parseFloat(item.sale_price || item.price || 0),
       })),
       status: data.status,
+      deliveryMethod,
+      deliveryAddress: shipping ? { address: shipping.address, suburb: shipping.suburb, postcode: shipping.postcode, phone: shipping.phone } : null,
+      pickupLocation: 'Pisces Flower Studio, Oakleigh South, Melbourne',
+      deliveryTime: items.find(item => item.deliveryDate)?.deliveryDate || null,
     });
 
     res.json({
@@ -394,9 +399,82 @@ app.put('/api/order/:id/status', async (req, res) => {
     }
 
     await wcApi.put(`orders/${req.params.id}`, { status, meta_data: meta });
+
+    // 状态变更时发送通知邮件
+    const customerName = [current.billing?.first_name, current.billing?.last_name].filter(Boolean).join(' ') || 'Valued Customer';
+    const email = current.billing?.email;
+    const items = current.line_items?.map(item => ({ name: item.name, qty: item.quantity, price: parseFloat(item.price) })) || [];
+    const deliveryMeta = (current.meta_data || []).find(m => m.key === 'delivery_method');
+    const deliveryMethod = deliveryMeta?.value === 'Delivery' ? 'Delivery' : 'Pickup';
+
+    if (email) {
+      if (status === 'processing') {
+        const deliveryDate = (current.line_items || []).find(li => li.meta_data?.find(m => m.key === 'Delivery Date'))?.meta_data?.find(m => m.key === 'Delivery Date')?.value || null;
+        sendOrderConfirmation({ to: email, name: customerName, orderId: req.params.id, total: parseFloat(current.total), items, status: 'processing', deliveryMethod, deliveryAddress: current.shipping, pickupLocation: 'Pisces Flower Studio, Oakleigh South, Melbourne', deliveryTime: deliveryDate });
+      } else if (status === 'shipped') {
+        sendOrderShipped({ to: email, name: customerName, orderId: req.params.id, items, deliveryAddress: current.shipping });
+      } else if (status === 'readyforpickup') {
+        sendOrderReadyForPickup({ to: email, name: customerName, orderId: req.params.id, items, pickupLocation: 'Pisces Flower Studio, Oakleigh South, Melbourne' });
+      } else if (status === 'completed') {
+        sendOrderCompleted({ to: email, name: customerName, orderId: req.params.id, deliveryMethod });
+      }
+    }
+
     res.json({ success: true, status, timestamp: now });
   } catch (err) {
     res.status(500).json({ error: err.response?.data?.message || err.message });
+  }
+});
+
+// ============================================================
+//  WooCommerce Webhook — 订单状态变更通知
+// ============================================================
+
+/**
+ * POST /api/webhook/order-status
+ * 由 WooCommerce 在订单状态变更时调用
+ *
+ * 配置方式：
+ *   WooCommerce 后台 → 设置 → 高级 → Webhooks → 添加
+ *   - Topic: Order status changed
+ *   - Delivery URL: http://YOUR_SERVER:5000/api/webhook/order-status
+ *   - Secret: 可选，用于验签
+ */
+app.post('/api/webhook/order-status', express.json({ type: 'application/json' }), async (req, res) => {
+  // 立即返回 200，避免 WooCommerce 重试
+  res.status(200).json({ received: true });
+
+  try {
+    const order = req.body;
+    if (!order?.id || !order?.status) return;
+
+    const status = order.status;
+    const email = order.billing?.email;
+    if (!email) return;
+
+    const customerName = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ') || 'Valued Customer';
+    const rawItems = Array.isArray(order.line_items) ? order.line_items : (order.line_items ? Object.values(order.line_items) : []);
+    const items = rawItems.map(item => ({ name: item.name || item.product_name, qty: item.quantity || item.qty, price: parseFloat(item.price || 0) }));
+    const deliveryMeta = (order.meta_data || []).find(m => m.key === 'delivery_method');
+    const deliveryMethod = deliveryMeta?.value === 'Delivery' ? 'Delivery' : 'Pickup';
+
+    // 忽略初始创建状态，因为下单时已发了确认邮件
+    if (status === 'on-hold' || status === 'pending') return;
+
+    console.log('[Webhook] Order', order.id, 'status changed to', status);
+
+    if (status === 'processing') {
+      const deliveryDate = order.line_items?.find(li => li.meta_data?.find(m => m.key === 'Delivery Date'))?.meta_data?.find(m => m.key === 'Delivery Date')?.value || null;
+      sendOrderConfirmation({ to: email, name: customerName, orderId: order.id, total: parseFloat(order.total), items, status: 'processing', deliveryMethod, deliveryAddress: order.shipping, pickupLocation: 'Pisces Flower Studio, Oakleigh South, Melbourne', deliveryTime: deliveryDate });
+    } else if (status === 'shipped') {
+      sendOrderShipped({ to: email, name: customerName, orderId: order.id, items, deliveryAddress: order.shipping });
+    } else if (status === 'readyforpickup') {
+      sendOrderReadyForPickup({ to: email, name: customerName, orderId: order.id, items, pickupLocation: 'Pisces Flower Studio, Oakleigh South, Melbourne' });
+    } else if (status === 'completed') {
+      sendOrderCompleted({ to: email, name: customerName, orderId: order.id, deliveryMethod });
+    }
+  } catch (err) {
+    console.error('[Webhook] Error processing order status:', err.message);
   }
 });
 

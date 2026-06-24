@@ -117,6 +117,10 @@ function OrderSummary() {
                             <span className="os-info-label">Phone</span>
                             <span className="os-info-value">{order.delivery?.phone}</span>
                         </div>
+                        <div className="os-info-item">
+                            <span className="os-info-label">Method</span>
+                            <span className="os-info-value">{isPickup ? 'Pickup' : 'Delivery'}</span>
+                        </div>
                     </div>
 
                     {/* 配送信息 */}
@@ -173,16 +177,23 @@ function OrderSummary() {
                                         <span>Awaiting Review — merchant will confirm your order shortly</span>
                                     </div>
                                 )}
-                                {/* Processing — 商家手动改为 processing 后才点亮 */}
+                                {/* Processing */}
                                 <div className={`timeline-step ${liveStatus?.status === 'processing' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
                                     <span className="timeline-dot">{liveStatus?.status === 'processing' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
                                     <span>Processing</span>
                                 </div>
-                                {/* Shipped / Ready for Pickup */}
-                                <div className={`timeline-step ${liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
-                                    <span className="timeline-dot">{liveStatus?.dateShipped || liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
-                                    <span>{(liveStatus?.status === 'readyforpickup') ? 'Ready for Pickup' : isPickup ? 'Ready for Pickup' : 'Shipped'}{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
-                                </div>
+                                {/* Shipped (配送) 或 Ready for Pickup (自提) — 二选一 */}
+                                {isPickup ? (
+                                    <div className={`timeline-step ${liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                        <span className="timeline-dot">{liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
+                                        <span>Ready for Pickup</span>
+                                    </div>
+                                ) : (
+                                    <div className={`timeline-step ${liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                        <span className="timeline-dot">{liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
+                                        <span>Shipped{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
+                                    </div>
+                                )}
                                 {/* Delivered / Picked Up */}
                                 <div className={`timeline-step ${liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
                                     <span className="timeline-dot">{liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? '✓' : '○'}</span>

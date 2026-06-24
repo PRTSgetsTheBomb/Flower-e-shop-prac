@@ -26,14 +26,18 @@ const transporter = nodemailer.createTransport({
 /**
  * 发送订单确认邮件
  * @param {object} params
- * @param {string} params.to       - 客户邮箱
- * @param {string} params.name     - 客户姓名
- * @param {string} params.orderId  - WooCommerce 订单号
- * @param {number} params.total    - 订单总额
- * @param {Array}  params.items    - 商品列表 [{name, qty, price}]
- * @param {string} params.status   - 订单状态
+ * @param {string} params.to              - 客户邮箱
+ * @param {string} params.name            - 客户姓名
+ * @param {string} params.orderId         - WooCommerce 订单号
+ * @param {number} params.total           - 订单总额
+ * @param {Array}  params.items           - 商品列表 [{name, qty, price}]
+ * @param {string} params.status          - 订单状态
+ * @param {string} params.deliveryMethod  - 配送方式 ("Delivery" | "Pickup")
+ * @param {object} params.deliveryAddress - 配送地址 {address, suburb, postcode, phone}
+ * @param {string} params.pickupLocation  - 自提地点（仅 pickup 时）
+ * @param {string} params.deliveryTime    - 配送/自提时间
  */
-async function sendOrderConfirmation({ to, name, orderId, total, items, status }) {
+async function sendOrderConfirmation({ to, name, orderId, total, items, status, deliveryMethod, deliveryAddress, pickupLocation, deliveryTime }) {
   const itemsHtml = items
     .map(
       (item) => `
@@ -86,6 +90,29 @@ async function sendOrderConfirmation({ to, name, orderId, total, items, status }
                         <td style="color:#666;font-size:14px;">Status</td>
                         <td style="text-align:right;color:#856404;font-weight:bold;">${status}</td>
                       </tr>
+                      <tr>
+                        <td style="color:#666;font-size:14px;padding-top:10px;border-top:1px solid #ddd;"><strong>${deliveryMethod === 'Pickup' ? 'Pickup' : 'Delivery'}</strong></td>
+                        <td style="text-align:right;padding-top:10px;border-top:1px solid #ddd;color:#333;font-size:14px;">
+                          ${deliveryMethod === 'Pickup'
+                            ? pickupLocation || 'Pisces Flower Studio, Oakleigh South VIC 3167'
+                            : [deliveryAddress?.address, deliveryAddress?.suburb, deliveryAddress?.postcode].filter(Boolean).join(', ')
+                          }
+                        </td>
+                      </tr>
+                      ${deliveryMethod !== 'Pickup' && deliveryAddress?.phone ? `
+                      <tr>
+                        <td style="color:#666;font-size:14px;">Phone</td>
+                        <td style="text-align:right;color:#333;font-size:14px;">${deliveryAddress.phone}</td>
+                      </tr>` : ''}
+                      <tr>
+                        <td style="color:#666;font-size:14px;">${deliveryMethod === 'Pickup' ? 'Pickup Date' : 'Estimated Delivery Time'}</td>
+                        <td style="text-align:right;color:#333;font-size:14px;">${deliveryTime || 'To be confirmed'}</td>
+                      </tr>
+                      <tr>
+                        <td colspan="2" style="padding-top:6px;font-size:11px;color:#999;line-height:1.4;">
+                          Delivery time could be delayed for any reason, we will try our best to give the customer a better shopping experience.
+                        </td>
+                      </tr>
                     </table>
                   </td>
                 </tr>
@@ -113,7 +140,7 @@ async function sendOrderConfirmation({ to, name, orderId, total, items, status }
               </table>
               <p style="color:#555;line-height:1.6;font-size:14px;">
                 We'll send you another email when your order is dispatched.
-                If you have any questions, please <a href="/contact" style="color:#2d5a27;">contact us</a>.
+                If you have any questions, please <a href="${process.env.SITE_URL || 'http://localhost:3000'}/contact" style="color:#2d5a27;">contact us</a>.
               </p>
             </td>
           </tr>
@@ -135,7 +162,7 @@ async function sendOrderConfirmation({ to, name, orderId, total, items, status }
   const mailOptions = {
     from: process.env.EMAIL_FROM || '"Pisces Flower" <noreply@piscesflower.com>',
     to,
-    subject: `Order Confirmation #${orderId} — Pisces Flower`,
+    subject: status === 'processing' ? `Your Order #${orderId} Is Now Being Processed — Pisces Flower` : `Order Confirmation #${orderId} — Pisces Flower`,
     html,
   };
 
@@ -150,4 +177,158 @@ async function sendOrderConfirmation({ to, name, orderId, total, items, status }
   }
 }
 
-module.exports = { sendOrderConfirmation };
+/**
+ * 发送发货通知邮件
+ */
+async function sendOrderShipped({ to, name, orderId, items, deliveryAddress }) {
+  const itemsHtml = items.map(item =>
+    `<tr><td style="padding:6px 0;border-bottom:1px solid #eee;">${item.name} × ${item.qty}</td></tr>`
+  ).join('');
+
+  const html = `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+  <table width="100%" style="background:#f4f4f4;padding:20px;">
+    <tr><td align="center">
+      <table width="600" style="background:#fff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#2d5a27;padding:30px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:24px;">Pisces Flower</h1>
+          <p style="color:#d4edda;margin:8px 0 0;font-size:14px;">Your Order Has Been Shipped!</p>
+        </td></tr>
+        <tr><td style="padding:30px;">
+          <p style="font-size:16px;color:#333;">Hi <strong>${name}</strong>,</p>
+          <p style="color:#555;line-height:1.6;">Great news! Your order <strong>#${orderId}</strong> is on its way and will arrive shortly.</p>
+          ${deliveryAddress ? `
+          <p style="color:#555;line-height:1.6;">
+            Shipping to:<br/>
+            ${[deliveryAddress.address, deliveryAddress.suburb, deliveryAddress.postcode].filter(Boolean).join(', ')}
+          </p>` : ''}
+          <table width="100%" style="margin:16px 0;">
+            <thead><tr><th style="text-align:left;padding:8px 0;border-bottom:2px solid #2d5a27;color:#2d5a27;">Items</th></tr></thead>
+            <tbody>${itemsHtml}</tbody>
+          </table>
+          <p style="color:#555;line-height:1.6;font-size:14px;">
+            If you have any questions, please <a href="${process.env.SITE_URL || 'http://localhost:3000'}/contact" style="color:#2d5a27;">contact us</a>.
+          </p>
+        </td></tr>
+        <tr><td style="background:#2d5a27;padding:20px;text-align:center;">
+          <p style="color:#d4edda;margin:0;font-size:12px;">Pisces Flower &mdash; Fresh flowers delivered with love.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to, subject: `Your Order #${orderId} Has Been Shipped — Pisces Flower`, html,
+    });
+    console.log('[Mail] Shipped notice sent to', to, '| ID:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error('[Mail] Failed to send shipped notice:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 发送自提通知邮件
+ */
+async function sendOrderReadyForPickup({ to, name, orderId, items, pickupLocation }) {
+  const itemsHtml = items.map(item =>
+    `<tr><td style="padding:6px 0;border-bottom:1px solid #eee;">${item.name} × ${item.qty}</td></tr>`
+  ).join('');
+
+  const html = `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+  <table width="100%" style="background:#f4f4f4;padding:20px;">
+    <tr><td align="center">
+      <table width="600" style="background:#fff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#fd7e14;padding:30px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:24px;">Pisces Flower</h1>
+          <p style="color:#fff3cd;margin:8px 0 0;font-size:14px;">Ready for Pickup!</p>
+        </td></tr>
+        <tr><td style="padding:30px;">
+          <p style="font-size:16px;color:#333;">Hi <strong>${name}</strong>,</p>
+          <p style="color:#555;line-height:1.6;">Your order <strong>#${orderId}</strong> is now ready for pickup!</p>
+          <p style="background:#f8f9fa;padding:12px;border-radius:6px;color:#333;">
+            <strong>Pickup Location:</strong><br/>${pickupLocation || 'Pisces Flower Studio, Oakleigh South, Melbourne'}
+          </p>
+          <table width="100%" style="margin:16px 0;">
+            <thead><tr><th style="text-align:left;padding:8px 0;border-bottom:2px solid #fd7e14;color:#fd7e14;">Items</th></tr></thead>
+            <tbody>${itemsHtml}</tbody>
+          </table>
+          <p style="color:#555;line-height:1.6;font-size:14px;">
+            If you have any questions, please <a href="${process.env.SITE_URL || 'http://localhost:3000'}/contact" style="color:#fd7e14;">contact us</a>.
+          </p>
+        </td></tr>
+        <tr><td style="background:#fd7e14;padding:20px;text-align:center;">
+          <p style="color:#fff3cd;margin:0;font-size:12px;">Pisces Flower &mdash; Fresh flowers delivered with love.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to, subject: `Your Order #${orderId} Is Ready for Pickup — Pisces Flower`, html,
+    });
+    console.log('[Mail] ReadyForPickup notice sent to', to, '| ID:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error('[Mail] Failed to send pickup notice:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 发送订单完成通知邮件（Delivered / Picked Up）
+ */
+async function sendOrderCompleted({ to, name, orderId, deliveryMethod }) {
+  const verb = deliveryMethod === 'Pickup' ? 'picked up' : 'delivered';
+  const html = `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+  <table width="100%" style="background:#f4f4f4;padding:20px;">
+    <tr><td align="center">
+      <table width="600" style="background:#fff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#28a745;padding:30px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:24px;">Pisces Flower</h1>
+          <p style="color:#d4edda;margin:8px 0 0;font-size:14px;">Order ${verb === 'delivered' ? 'Delivered' : 'Picked Up'}!</p>
+        </td></tr>
+        <tr><td style="padding:30px;">
+          <p style="font-size:16px;color:#333;">Hi <strong>${name}</strong>,</p>
+          <p style="color:#555;line-height:1.6;">Your order <strong>#${orderId}</strong> has been ${verb}. Thank you for choosing Pisces Flower!</p>
+          <p style="color:#555;line-height:1.6;font-size:14px;">
+            We'd love to hear your feedback. <a href="${process.env.SITE_URL || 'http://localhost:3000'}/contact" style="color:#28a745;">Let us know</a> how we did.
+          </p>
+        </td></tr>
+        <tr><td style="background:#28a745;padding:20px;text-align:center;">
+          <p style="color:#d4edda;margin:0;font-size:12px;">Pisces Flower &mdash; Fresh flowers delivered with love.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to, subject: `Your Order #${orderId} Has Been ${verb === 'delivered' ? 'Delivered' : 'Picked Up'} — Pisces Flower`, html,
+    });
+    console.log('[Mail] Completed notice sent to', to, '| ID:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error('[Mail] Failed to send completed notice:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+module.exports = { sendOrderConfirmation, sendOrderShipped, sendOrderReadyForPickup, sendOrderCompleted };
