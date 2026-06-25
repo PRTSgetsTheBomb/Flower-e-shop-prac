@@ -60,6 +60,16 @@ function cartReducer(state, action) {
       return state.map((item) =>
         item.id === action.id ? { ...item, qty: Math.max(1, action.qty) } : item
       );
+    // 切换配送方式（pickup / delivery）
+    case 'UPDATE_DELIVERY_METHOD':
+      return state.map((item) =>
+        item.id === action.id ? { ...item, deliveryMethod: action.method } : item
+      );
+    // 修改配送日期
+    case 'UPDATE_DELIVERY_DATE':
+      return state.map((item) =>
+        item.id === action.id ? { ...item, deliveryDate: action.date } : item
+      );
     // 清空购物车
     case 'CLEAR':
       return [];
@@ -116,6 +126,8 @@ export function CartProvider({ children }) {
   }, [showToast]);
   const removeFromCart = (id) => dispatch({ type: 'REMOVE', id });
   const updateQty = (id, qty) => dispatch({ type: 'UPDATE_QTY', id, qty });
+  const updateDeliveryMethod = (id, method) => dispatch({ type: 'UPDATE_DELIVERY_METHOD', id, method });
+  const updateDeliveryDate = (id, date) => dispatch({ type: 'UPDATE_DELIVERY_DATE', id, date });
   const clearCart = () => dispatch({ type: 'CLEAR' });
 
   // 派生状态：每次渲染根据当前购物车数据重新计算
@@ -123,7 +135,7 @@ export function CartProvider({ children }) {
   const totalPrice = cart.reduce((sum, item) => sum + item.qty * (parseFloat(item.sale_price) || parseFloat(item.price) || 0), 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQty, clearCart, totalItems, totalPrice, toast, hideToast }}>
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQty, updateDeliveryMethod, updateDeliveryDate, clearCart, totalItems, totalPrice, toast, hideToast }}>
       {children}
       {/* Toast 弹窗由 CartToast 组件渲染，放在 children 之后以覆盖在最上层 */}
     </CartContext.Provider>

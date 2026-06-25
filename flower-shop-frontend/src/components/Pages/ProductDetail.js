@@ -50,18 +50,21 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
 import ImageLightbox from '../Pages/ImageLightbox';
 import ProductReviews from './ProductReviews';
 import { fetchProductBySlug, fetchAllProducts } from '../../api/products';
 import { useCart } from '../../context/CartContext';
+import deliveryAreas from '../Generic/Areas';
 import Loading from '../Generic/Loading';
+import ProductCard from '../Generic/ProductCard';
 import '../../PageStyles/ProductDetail.css';
 
 function ProductDetail() {
     const { slug } = useParams();
+    const [searchParams] = useSearchParams();
+    const reviewOrderId = searchParams.get('order');
     const { addToCart } = useCart();
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -70,7 +73,11 @@ function ProductDetail() {
     const [selectedImage, setSelectedImage] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [qty, setQty] = useState(1);
-    const [deliveryMethod, setDeliveryMethod] = useState('delivery');
+    const [deliveryMethod, setDeliveryMethod] = useState('pickup');
+    const [selectedSuburb, setSelectedSuburb] = useState(() => {
+        try { return localStorage.getItem('checkout_suburb') || ''; }
+        catch { return ''; }
+    });
     const [deliveryDate, setDeliveryDate] = useState('');
     const [giftMessage, setGiftMessage] = useState('');
     const [dateError, setDateError] = useState('');
@@ -110,7 +117,6 @@ function ProductDetail() {
         setDateError('');
         addToCart({ ...product, qty, deliveryMethod, deliveryDate, giftMessage });
         setAdded(true);
-        setTimeout(() => setAdded(false), 2000);
     };
 
     const now = new Date();
@@ -169,20 +175,6 @@ function ProductDetail() {
                                 <div className="method-toggle">
                                     <button
                                         type="button"
-                                        className={`method-btn${deliveryMethod === 'delivery' ? ' active' : ''}`}
-                                        onClick={() => {
-                                            setDeliveryMethod('delivery');
-                                            // 切换方式后重新校验日期
-                                            const newMin = new Date();
-                                            if (newMin.getHours() >= 13) newMin.setDate(newMin.getDate() + 1);
-                                            const newMinStr = newMin.toISOString().split('T')[0];
-                                            if (deliveryDate && deliveryDate < newMinStr) setDeliveryDate('');
-                                        }}
-                                    >
-                                        Delivery
-                                    </button>
-                                    <button
-                                        type="button"
                                         className={`method-btn${deliveryMethod === 'pickup' ? ' active' : ''}`}
                                         onClick={() => {
                                             setDeliveryMethod('pickup');
@@ -194,6 +186,20 @@ function ProductDetail() {
                                         }}
                                     >
                                         Pickup
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`method-btn${deliveryMethod === 'delivery' ? ' active' : ''}`}
+                                        onClick={() => {
+                                            setDeliveryMethod('delivery');
+                                            // 切换方式后重新校验日期
+                                            const newMin = new Date();
+                                            if (newMin.getHours() >= 13) newMin.setDate(newMin.getDate() + 1);
+                                            const newMinStr = newMin.toISOString().split('T')[0];
+                                            if (deliveryDate && deliveryDate < newMinStr) setDeliveryDate('');
+                                        }}
+                                    >
+                                        Delivery
                                     </button>
                                 </div>
                             </div>
@@ -207,14 +213,34 @@ function ProductDetail() {
                                 </div>
                             </div>
 
+                            {deliveryMethod === 'delivery' && (
+                                <div className="detail-field">
+                                    <label>Delivery Area *</label>
+                                    <p className="delivery-hint">
+                                        We only deliver to selected Melbourne suburbs.
+                                    </p>
+                                    <select
+                                        className="suburb-select"
+                                        value={selectedSuburb}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSelectedSuburb(val);
+                                            try { localStorage.setItem('checkout_suburb', val); } catch { }
+                                        }}
+                                    >
+                                        <option value="">Select your suburb...</option>
+                                        {deliveryAreas.map((area) => (
+                                            <option key={area} value={area}>{area}</option>
+                                        ))}
+                                    </select>
+                                    <p className="delivery-hint">
+                                        We recommend you pick up your order from our store to have a better experience and product quality.
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="detail-field">
                                 <label>{deliveryMethod === 'delivery' ? 'Delivery Date' : 'Pickup Date'} *</label>
-                                {deliveryMethod === 'delivery' && (
-                                    <p className="delivery-hint">
-                                        We deliver to selected Melbourne suburbs.
-                                        <Link to="/delivery-areas" className="delivery-hint-link"> View areas</Link>
-                                    </p>
-                                )}
                                 <input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDateError(''); }} min={minDateStr} required />
                                 {dateError && <span className="field-error">{dateError}</span>}
                             </div>
@@ -243,35 +269,7 @@ function ProductDetail() {
                         <h2 className="detail-rec-title">You May Also Like</h2>
                         <div className="product-grid">
                             {recommended.map((item, i) => (
-                                <motion.div
-                                    key={item.id}
-                                    initial={{ opacity: 0, y: 40 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    viewport={{ once: true }}
-                                    transition={{ duration: 0.45, delay: i * 0.08, ease: 'easeOut' }}
-                                >
-                                    <Link
-                                        to={`/product/${item.nameSlug || item.slug}`}
-                                        className="product-card"
-                                    >
-                                        {item.image && (
-                                            <img src={item.image} alt={item.name} className="product-image" />
-                                        )}
-                                        <span className="product-name">{item.name}</span>
-                                        {item.price != null && item.price !== '' && (
-                                            <span className="product-price">
-                                                {item.sale_price ? (
-                                                    <>
-                                                        <span className="regular-price">${item.regular_price}</span>
-                                                        <span className="sale-price">${item.sale_price}</span>
-                                                    </>
-                                                ) : (
-                                                    `$${item.price}`
-                                                )}
-                                            </span>
-                                        )}
-                                    </Link>
-                                </motion.div>
+                                <ProductCard key={item.id} product={item} animated delay={i * 0.08} />
                             ))}
                         </div>
                     </FadeInUp>
@@ -289,7 +287,7 @@ function ProductDetail() {
 
             {/* 商品评价 */}
             <div className="container">
-                <ProductReviews productId={product.id} productName={product.name} />
+                <ProductReviews productId={product.id} productName={product.name} orderId={reviewOrderId} />
             </div>
         </FadeInUp>
     );

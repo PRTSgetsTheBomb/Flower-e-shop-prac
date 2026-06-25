@@ -116,6 +116,23 @@
     opacity: 0.7;
 }
 
+.suburb-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.95em;
+  outline: none;
+  background: #fff;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.suburb-select:focus {
+  border-color: var(--color-primary);
+}
+
 .qty-selector {
   display: inline-flex;
   align-items: center;

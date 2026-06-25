@@ -9,9 +9,10 @@
  * - 支持从我的账户页面直接点击订单号跳转过来
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
+import SaveAddressBtn from './SaveAddressBtn';
 import { useAuth } from '../../context/AuthContext';
 import { getOrderById } from '../../utils/orders';
 import '../../PageStyles/OrderSummary.css';
@@ -19,6 +20,20 @@ import '../../PageStyles/OrderSummary.css';
 function OrderSummary() {
     const { orderId } = useParams();
     const { user } = useAuth();
+    const [liveStatus, setLiveStatus] = useState(null);
+
+    useEffect(() => {
+        const ord = user ? getOrderById(user.email, orderId) : null;
+        const wcId = ord?.wooCommerceId;
+        if (!wcId) {
+            setLiveStatus(null);
+            return;
+        }
+        fetch(`http://localhost:5000/api/order/${wcId}`)
+            .then(res => res.json())
+            .then(data => setLiveStatus(data))
+            .catch(() => { });
+    }, [orderId, user]);
 
     // 未登录
     if (!user) {
@@ -36,6 +51,7 @@ function OrderSummary() {
     }
 
     const order = getOrderById(user.email, orderId);
+    const wcId = order?.wooCommerceId;
 
     // 订单不存在
     if (!order) {
@@ -53,6 +69,7 @@ function OrderSummary() {
     }
 
     const orderDate = new Date(order.date);
+    const isPickup = order.items?.every(item => item.deliveryMethod === 'pickup');
 
     return (
         <FadeInUp as="section" className="order-summary-page">
@@ -60,7 +77,24 @@ function OrderSummary() {
                 <div className="order-summary-card">
                     {/* 头部：状态标识 */}
                     <div className="os-header">
-                        <div className="os-status-badge">&#10003; {order.status}</div>
+                        {(() => {
+                            const s = liveStatus?.status || order.status;
+                            const bg = s === 'completed' ? '#28a745' :
+                                s === 'shipped' || s === 'readyforpickup' ? '#17a2b8' :
+                                    s === 'processing' ? '#ffc107' :
+                                        s === 'on-hold' || s === 'On Hold' ? '#fd7e14' : '#6c757d';
+                            const color = s === 'processing' || s === 'on-hold' || s === 'On Hold' ? '#333' : '#fff';
+                            const label = s === 'processing' ? 'Processing' :
+                                s === 'shipped' ? 'Shipped' :
+                                    s === 'readyforpickup' ? 'Ready for Pickup' :
+                                        s === 'completed' ? (isPickup ? 'Picked Up' : 'Delivered') :
+                                            s === 'on-hold' || s === 'On Hold' ? 'Awaiting Review' : s;
+                            return (
+                                <div className="os-status-badge" style={{ background: bg, color }}>
+                                    {label}
+                                </div>
+                            );
+                        })()}
                         <h1>Thank You, {user.name}!</h1>
                         <p className="os-subtitle">Your order has been placed successfully.</p>
                     </div>
@@ -83,19 +117,121 @@ function OrderSummary() {
                             <span className="os-info-label">Phone</span>
                             <span className="os-info-value">{order.delivery?.phone}</span>
                         </div>
+                        <div className="os-info-item">
+                            <span className="os-info-label">Method</span>
+                            <span className="os-info-value">{isPickup ? 'Pickup' : 'Delivery'}</span>
+                        </div>
                     </div>
 
                     {/* 配送信息 */}
-                    {order.delivery?.address && (
+                    {order.delivery?.address ? (
+                        <>
+                            <div className="os-section">
+                                <h2>Delivery Address</h2>
+                                <p className="os-delivery-detail">
+                                    {order.delivery.firstName} {order.delivery.lastName}
+                                    <br />
+                                    {order.delivery.address}
+                                    <br />
+                                    {order.delivery.suburb} {order.delivery.postcode}
+                                </p>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className='os-section'>
+                                <h2>Pickup Location</h2>
+                                <p>Pisces Flower Studio<br />Oakleigh South, Melbourne</p>
+                            </div>
+                            {order.items?.[0]?.deliveryDate && (
+                                <div className='os-section'>
+                                    <h2>Pickup Time</h2>
+                                    <p>{order.items[0].deliveryDate}</p>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* 保存地址到账户 */}
+                    {order.delivery?.address && <SaveAddressBtn delivery={order.delivery} />}
+
+                    {/* 订单状态时间线 */}
+                    {(liveStatus || !wcId) && (
                         <div className="os-section">
-                            <h2>Delivery Address</h2>
-                            <p className="os-delivery-detail">
-                                {order.delivery.firstName} {order.delivery.lastName}
-                                <br />
-                                {order.delivery.address}
-                                <br />
-                                {order.delivery.suburb} {order.delivery.postcode}
-                            </p>
+                            <h2>Order Status</h2>
+                            <div className="os-timeline">
+                                <div className="timeline-step completed">
+                                    <span className="timeline-dot">✓</span>
+                                    <span>Order Placed — {new Date(order.date).toLocaleDateString()}</span>
+                                </div>
+                                {liveStatus?.datePaid && (
+                                    <div className="timeline-step completed">
+                                        <span className="timeline-dot">✓</span>
+                                        <span>Payment Confirmed</span>
+                                    </div>
+                                )}
+                                {/* Awaiting Review — 商家在后台确认前 */}
+                                {liveStatus?.status === 'on-hold' && (
+                                    <div className="timeline-step completed">
+                                        <span className="timeline-dot">⏳</span>
+                                        <span>Awaiting Review — merchant will confirm your order shortly</span>
+                                    </div>
+                                )}
+                                {/* Processing */}
+                                <div className={`timeline-step ${liveStatus?.status === 'processing' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.status === 'processing' || liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
+                                    <span>Processing</span>
+                                </div>
+                                {/* Shipped (配送) 或 Ready for Pickup (自提) — 二选一 */}
+                                {isPickup ? (
+                                    <div className={`timeline-step ${liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                        <span className="timeline-dot">{liveStatus?.status === 'readyforpickup' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
+                                        <span>Ready for Pickup</span>
+                                    </div>
+                                ) : (
+                                    <div className={`timeline-step ${liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                        <span className="timeline-dot">{liveStatus?.status === 'shipped' || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
+                                        <span>Shipped{liveStatus?.dateShipped ? ` — ${new Date(liveStatus.dateShipped).toLocaleDateString()}` : ''}</span>
+                                    </div>
+                                )}
+                                {/* Delivered / Picked Up */}
+                                <div className={`timeline-step ${liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? 'completed' : ''}`}>
+                                    <span className="timeline-dot">{liveStatus?.dateCompleted || liveStatus?.status === 'completed' ? '✓' : '○'}</span>
+                                    <span>{isPickup ? 'Picked Up' : 'Delivered'}{liveStatus?.dateCompleted ? ` — ${new Date(liveStatus.dateCompleted).toLocaleDateString()}` : ''}</span>
+                                </div>
+                            </div>
+                            {/* 客户操作：确认收货/取货 */}
+                            {(liveStatus?.status === 'shipped' || liveStatus?.status === 'readyforpickup') && (
+                                <button
+                                    className="btn-primary"
+                                    style={{ marginTop: 16 }}
+                                    onClick={async () => {
+                                        if (!window.confirm(isPickup ? 'Confirm that you have picked up this order?' : 'Confirm that you have received this order?')) return;
+                                        await fetch(`http://localhost:5000/api/order/${wcId}/status`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ status: 'completed' }),
+                                        });
+                                        setLiveStatus(prev => ({ ...prev, status: 'completed' }));
+                                    }}
+                                >
+                                    {isPickup ? 'Picked Up' : 'Confirm Received'}
+                                </button>
+                            )}
+                            {liveStatus?.status === 'completed' && (
+                                <>
+                                    <p style={{ color: '#28a745', fontWeight: 600, marginTop: 16 }}>
+                                        ✓ {isPickup ? 'Picked up' : 'Delivered and confirmed'}
+                                    </p>
+                                    <Link
+                                        to={`/product/${order.items[0]?.nameSlug || order.items[0]?.slug || order.items[0]?.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}?review&order=${wcId || ''}`}
+                                        className="btn-primary"
+                                        style={{ marginTop: 12, display: 'inline-block', textDecoration: 'none' }}
+                                    >
+                                        Write a Review
+                                    </Link>
+                                </>
+                            )}
                         </div>
                     )}
 

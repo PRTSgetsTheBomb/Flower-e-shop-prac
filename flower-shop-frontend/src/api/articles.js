@@ -1,3 +1,5 @@
+import { safeFetch } from '../utils/http';
+
 /**
  * 文章数据 API 模块
  *
@@ -40,16 +42,6 @@ function mapPostDetail(post) {
   };
 }
 
-// 安全发起 fetch，失败或非 200 时返回空数组
-async function safeFetch(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
 
 /**
  * 获取文章列表

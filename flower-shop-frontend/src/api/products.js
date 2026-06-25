@@ -12,6 +12,7 @@
  */
 
 import api from './api';
+import { safeFetch } from '../utils/http';
 
 const WP_API = `${process.env.REACT_APP_WC_URL}/wp-json/wp/v2`;
 
@@ -67,16 +68,6 @@ function fuzzyMatch(text, query) {
   return qi === query.length;
 }
 
-// 安全发起 fetch 请求，网络异常或非 200 时返回空数组而非抛错
-async function safeFetch(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
 
 // 安全调用 WooCommerce API，失败时返回 null（触发降级到 WordPress API）
 async function safeApiGet(endpoint) {

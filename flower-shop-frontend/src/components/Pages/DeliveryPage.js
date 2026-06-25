@@ -15,6 +15,7 @@ import { useLocation, Link } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
 import { fetchAllProducts } from '../../api/products';
 import Loading from '../Generic/Loading';
+import ProductCard from '../Generic/ProductCard';
 import '../../PageStyles/DeliveryPage.css';
 
 // 将 URL slug 转为可读的地名（如 "south-yarra" → "South Yarra"，"cbd" → "CBD"）
@@ -62,27 +63,7 @@ function DeliveryPage() {
         ) : (
           <div className="product-grid">
             {products.map((product) => (
-              <Link key={product.id}
-                to={`/product/${product.nameSlug || product.slug}`}
-                className="product-card"
-              >
-                {product.image && (
-                  <img src={product.image} alt={product.name} className="product-image" />
-                )}
-                <span className="product-name">{product.name}</span>
-                {product.price != null && product.price !== '' && (
-                  <span className="product-price">
-                    {product.sale_price ? (
-                      <>
-                        <span className="regular-price">${product.regular_price}</span>
-                        <span className="sale-price">${product.sale_price}</span>
-                      </>
-                    ) : (
-                      `$${product.price}`
-                    )}
-                  </span>
-                )}
-              </Link>
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}

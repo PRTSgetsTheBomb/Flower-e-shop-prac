@@ -20,7 +20,7 @@ import FadeInUp from '../Generic/FadeInUp';
 import StripePayment from '../StripePayment';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-import { addOrder } from '../../utils/orders';
+import { addOrder, updateOrderWcId } from '../../utils/orders';
 import deliveryAreas from '../Generic/Areas';
 import '../../PageStyles/CheckoutPage.css';
 
@@ -57,14 +57,18 @@ function CheckoutPage() {
     };
 
     // 用一个对象管理所有表单字段，handleChange 统一更新
-    const [form, setForm] = useState({
-        firstName: user?.addresses?.[0]?.firstName || '',
-        lastName: user?.addresses?.[0]?.lastName || '',
-        email: user?.email || '',
-        phone: '',
-        address: '',
-        suburb: '',
-        postcode: '',
+    const [form, setForm] = useState(() => {
+        let savedSuburb = '';
+        try { savedSuburb = localStorage.getItem('checkout_suburb') || ''; } catch { }
+        return {
+            firstName: user?.addresses?.[0]?.firstName || '',
+            lastName: user?.addresses?.[0]?.lastName || '',
+            email: user?.email || '',
+            phone: '',
+            address: '',
+            suburb: savedSuburb,
+            postcode: '',
+        };
     });
 
     const handleChange = (e) => {
@@ -77,6 +81,10 @@ function CheckoutPage() {
             } else {
                 setPhoneError('');
             }
+        }
+        // Suburb 同步到 localStorage
+        if (name === 'suburb') {
+            try { localStorage.setItem('checkout_suburb', value); } catch { }
         }
     };
 
@@ -94,7 +102,7 @@ function CheckoutPage() {
         }
 
         // Suburb 最终验证（仅配送订单）
-        if (!form.suburb) {
+        if (hasDelivery && !form.suburb) {
             setSuburbError('Please select a delivery area.');
             setSubmitting(false);
             return;
@@ -159,7 +167,7 @@ function CheckoutPage() {
             console.log('[Stripe] Payment succeeded:', paymentIntent.id);
         }
 
-        // 4. 支付成功 → 保存订单 & 跳转
+        // 4. 支付成功 → 保存订单 & 同步到 WooCommerce
         const email = user?.email || form.email;
         const order = addOrder(email, cart, total, {
             firstName: form.firstName,
@@ -172,6 +180,31 @@ function CheckoutPage() {
             tax,
             paymentMethod: cardInfo,
         });
+
+        // 同步订单到 WooCommerce 后端（不阻塞跳转）
+        const token = localStorage.getItem('jwt_token');
+        fetch('http://localhost:5000/api/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: cart,
+                customer: { firstName: form.firstName, lastName: form.lastName, email },
+                shipping: { address: form.address, suburb: form.suburb, postcode: form.postcode, phone: form.phone },
+                paymentMethod: cardInfo?.brand || 'Card',
+                token,
+            }),
+        }).then(async (res) => {
+            if (res.ok) {
+                const data = await res.json();
+                updateOrderWcId(email, order.id, data.orderId);
+                console.log('[Order] Synced to WooCommerce, ID:', data.orderId);
+            } else {
+                console.warn('[Order] Sync failed:', res.status);
+            }
+        }).catch((err) => {
+            console.warn('[Order] Sync error:', err.message);
+        });
+
         clearCart();
         navigate(`/order/${order.id}`);
         setSubmitting(false);
@@ -215,6 +248,30 @@ function CheckoutPage() {
                         <div className="checkout-form">
                             <div className="form-section">
                                 <h2>Contact</h2>
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label>First Name *</label>
+                                        <input
+                                            type="text"
+                                            name="firstName"
+                                            value={form.firstName}
+                                            onChange={handleChange}
+                                            placeholder="John"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Last Name *</label>
+                                        <input
+                                            type="text"
+                                            name="lastName"
+                                            value={form.lastName}
+                                            onChange={handleChange}
+                                            placeholder="Smith"
+                                            required
+                                        />
+                                    </div>
+                                </div>
                                 <div className="form-group">
                                     <label>Email *</label>
                                     <input
@@ -259,7 +316,7 @@ function CheckoutPage() {
                                                             suburb: addr.suburb || '',
                                                             postcode: addr.postcode || '',
                                                         }));
-                                                        setSuburbError('');
+                                                        setSuburbError(''); try { localStorage.setItem('checkout_suburb', addr.suburb || ''); } catch { }
                                                     }
                                                 }}
                                             >
@@ -272,31 +329,7 @@ function CheckoutPage() {
                                             </select>
                                         </div>
                                     )}
-                                    <h2>Delivery</h2>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>First Name *</label>
-                                            <input
-                                                type="text"
-                                                name="firstName"
-                                                value={form.firstName}
-                                                onChange={handleChange}
-                                                placeholder="John"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Last Name *</label>
-                                            <input
-                                                type="text"
-                                                name="lastName"
-                                                value={form.lastName}
-                                                onChange={handleChange}
-                                                placeholder="Smith"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
+                                    <h2>Delivery Address</h2>
                                     <div className="form-group full">
                                         <label>Address *</label>
                                         <input type="text" name="address" value={form.address} onChange={handleChange} required />
@@ -359,7 +392,7 @@ function CheckoutPage() {
                                         <span>Shipping: </span>
                                         <span>${DELIVERY_FEE.toFixed(2)}</span>
                                     </div>
-                                    <div> 
+                                    <div>
                                         <p><strong>Free shipping for orders over $150!</strong></p>
                                     </div>
                                 </>

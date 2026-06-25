@@ -16,27 +16,53 @@
  * 对接真实后端后无需修改此文件逻辑，只需替换 AuthContext 中的实现
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import FadeInUp from '../Generic/FadeInUp';
 import { useAuth } from '../../context/AuthContext';
 import { getUserOrders } from '../../utils/orders';
 import '../../PageStyles/AccountPage.css';
 
+const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
+
 function AccountPage() {
-    const { user, login, logout, updateProfile, addAddress, removeAddress, loading } = useAuth();
+    const { user, login, logout, updateProfile, addAddress, removeAddress, updateAddress, loading } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [tab, setTab] = useState('orders');   // 仪表盘标签页: 'orders' | 'profile'
     const [showAddressForm, setShowAddressForm] = useState(false);
+    const [editingAddress, setEditingAddress] = useState(null); // null=添加模式, id=编辑模式
     const [addressForm, setAddressForm] = useState({
-        label: '', street: '', suburb: '', city: '', state: '', postcode: ''
+        label: '', street: '', suburb: '', postcode: ''
     });
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPwd, setShowPwd] = useState(false); // 密码显隐切换
     const [error, setError] = useState('');
     const orders = user ? getUserOrders(user.email) : [];
+    const [liveStatuses, setLiveStatuses] = useState({});
+
+    // 从 WooCommerce 同步订单状态
+    useEffect(() => {
+        if (!orders.length) return;
+        const wcOrders = orders.filter(o => o.wooCommerceId);
+        if (!wcOrders.length) return;
+
+        const fetchStatus = async (order) => {
+            try {
+                const res = await fetch(`${API_BASE}/api/order/${order.wooCommerceId}`);
+                if (!res.ok) return null;
+                const data = await res.json();
+                return { id: order.id, status: data.status };
+            } catch { return null; }
+        };
+
+        Promise.all(wcOrders.map(fetchStatus)).then(results => {
+            const map = {};
+            results.forEach(r => { if (r) map[r.id] = r.status; });
+            setLiveStatuses(map);
+        });
+    }, [orders.length]);
 
     if (user) {
         return (
@@ -67,7 +93,7 @@ function AccountPage() {
                                             <div className="order-card">
                                                 <div className="order-header">
                                                     <span className="order-id">{order.id}</span>
-                                                    <span className="order-status">{order.status}</span>
+                                                    <span className="order-status">{liveStatuses[order.id] || order.status}</span>
                                                 </div>
                                                 <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
                                                 <div className="order-items">
@@ -128,7 +154,8 @@ function AccountPage() {
                                 <div className="address-header">
                                     <h2>Addresses</h2>
                                     <button className="btn-add" onClick={() => {
-                                        setAddressForm({ label: '', street: '', suburb: '', city: '', state: '', postcode: '' });
+                                        setAddressForm({ label: '', street: '', suburb: '', postcode: '' });
+                                        setEditingAddress(null);
                                         setShowAddressForm(true);
                                     }}>+ Add</button>
                                 </div>
@@ -140,10 +167,22 @@ function AccountPage() {
                                             <div key={addr.id} className="address-card">
                                                 <div className="address-card-header">
                                                     <span className="address-label">{addr.label || 'Address'}</span>
-                                                    <button className="address-delete" onClick={() => removeAddress(addr.id)}>✕</button>
+                                                    <div className="address-actions">
+                                                        <button className="address-edit" onClick={() => {
+                                                            setAddressForm({
+                                                                label: addr.label || '',
+                                                                street: addr.street || '',
+                                                                suburb: addr.suburb || '',
+                                                                postcode: addr.postcode || '',
+                                                            });
+                                                            setEditingAddress(addr.id);
+                                                            setShowAddressForm(true);
+                                                        }}>✎</button>
+                                                        <button className="address-delete" onClick={() => removeAddress(addr.id)}>✕</button>
+                                                    </div>
                                                 </div>
                                                 <p className="address-detail">{addr.street}</p>
-                                                <p className="address-detail">{addr.suburb}{addr.suburb ? ', ' : ''}{addr.city} {addr.state} {addr.postcode}</p>
+                                                <p className="address-detail">{addr.suburb}{addr.suburb ? ', ' : ''} {addr.postcode}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -154,7 +193,7 @@ function AccountPage() {
                                 <div className="address-overlay">
                                     <div className="address-form-card">
                                         <div className="address-form-header">
-                                            <h3>Add Address</h3>
+                                            <h3>{editingAddress ? 'Edit Address' : 'Add Address'}</h3>
                                             <button className="address-form-close" onClick={() => setShowAddressForm(false)}>✕</button>
                                         </div>
                                         <div className="address-form-body">
@@ -176,16 +215,8 @@ function AccountPage() {
                                                     <label>Suburb</label>
                                                     <input type="text" value={addressForm.suburb} onChange={(e) => setAddressForm({ ...addressForm, suburb: e.target.value })} placeholder="Suburb" />
                                                 </div>
-                                                <div className="form-group">
-                                                    <label>City</label>
-                                                    <input type="text" value={addressForm.city} onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} placeholder="City" />
-                                                </div>
                                             </div>
                                             <div className="form-row">
-                                                <div className="form-group">
-                                                    <label>State</label>
-                                                    <input type="text" value={addressForm.state} onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })} placeholder="State" />
-                                                </div>
                                                 <div className="form-group">
                                                     <label>Postcode</label>
                                                     <input type="text" value={addressForm.postcode} onChange={(e) => setAddressForm({ ...addressForm, postcode: e.target.value })} placeholder="2000" />
@@ -195,9 +226,14 @@ function AccountPage() {
                                                 <button className="profile-cancel" onClick={() => setShowAddressForm(false)}>Cancel</button>
                                                 <button className="profile-save" onClick={() => {
                                                     if (!addressForm.street.trim()) return;
-                                                    addAddress(addressForm);
+                                                    if (editingAddress) {
+                                                        updateAddress(editingAddress, addressForm);
+                                                    } else {
+                                                        addAddress(addressForm);
+                                                    }
                                                     setShowAddressForm(false);
-                                                }}>Save</button>
+                                                    setEditingAddress(null);
+                                                }}>{editingAddress ? 'Update' : 'Save'}</button>
                                             </div>
                                         </div>
                                     </div>

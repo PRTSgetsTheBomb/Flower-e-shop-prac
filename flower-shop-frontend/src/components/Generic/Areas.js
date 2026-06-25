@@ -8,7 +8,7 @@
 const areas = [
   'Melbourne CBD', 'Armadale', 'Bentleigh', 'Camberwell',
   'Malvern', 'Richmond', 'St Kilda', 'South Yarra',
-  'Windsor', 'South Bank', 'Port Melbourne',
+  'Windsor', 'Southbank', 'Port Melbourne',
 ];
 
 export default areas;

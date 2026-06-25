@@ -2,29 +2,18 @@
  * 商品评价组件
  *
  * 支持留评（星级 + 文字），按时间倒序展示。
- * 数据以 localStorage 按商品 ID 存储。
+ * 数据通过后端 API 读写。
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getUserOrders } from '../../utils/orders';
 import '../../PageStyles/ProductReviews.css';
 
-const STORAGE_KEY = 'product_reviews';
-
-function loadReviews() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
-  catch { return {}; }
-}
-
-function saveReviews(all) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-}
-
+const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
 const STAR = '★';
 const STAR_O = '☆';
 
-export default function ProductReviews({ productId, productName }) {
+export default function ProductReviews({ productId, productName, orderId }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,52 +22,144 @@ export default function ProductReviews({ productId, productName }) {
   const [hover, setHover] = useState(0);
   const [text, setText] = useState('');
   const [submitMsg, setSubmitMsg] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [deletedMsg, setDeletedMsg] = useState('');
   const [hasPurchased, setHasPurchased] = useState(false);
+  const [verifying, setVerifying] = useState(true);
 
   useEffect(() => {
     if (!user) {
       setHasPurchased(false);
+      setVerifying(false);
       return;
     }
-    const orders = getUserOrders(user.email);
-    const purchased = orders.some(order =>
-      order.items.some(item => String(item.id) === String(productId))
-    );
-    setHasPurchased(purchased);
-  }, [user, productId])
 
+    const token = localStorage.getItem('jwt_token');
+
+    if (orderId) {
+      fetch(`${API_BASE}/api/order/${orderId}`)
+        .then(r => r.json())
+        .then(data => {
+          setHasPurchased(data.status === 'completed');
+          setVerifying(false);
+        })
+        .catch(() => {
+          setHasPurchased(false);
+          setVerifying(false);
+        });
+    } else if (token) {
+      fetch(`${API_BASE}/api/can-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, productId }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          setHasPurchased(data.canReview);
+          setVerifying(false);
+        })
+        .catch(() => {
+          setHasPurchased(false);
+          setVerifying(false);
+        });
+    } else {
+      setHasPurchased(false);
+      setVerifying(false);
+    }
+  }, [user, productId, orderId])
+
+// 从后端拉取评价，后端不可用时回退到 localStorage
   const refresh = useCallback(() => {
-    const all = loadReviews();
-    setReviews(all[productId] || []);
+    fetch(`${API_BASE}/api/reviews?productId=${productId}`)
+      .then(r => r.json())
+      .then(setReviews)
+      .catch(() => {
+        // 后端不可用，读本地缓存
+        try {
+          const all = JSON.parse(localStorage.getItem('product_reviews')) || {};
+          setReviews(all[productId] || []);
+        } catch {
+          setReviews([]);
+        }
+      });
   }, [productId]);
 
   useEffect(refresh, [refresh]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (rating === 0) { setSubmitMsg('Please select a star rating.'); return; }
     if (!text.trim()) { setSubmitMsg('Please write a review.'); return; }
 
-    const all = loadReviews();
-    const list = all[productId] || [];
-    const newReview = {
-      id: Date.now(),
-      author: user?.name,
-      rating,
-      text: text.trim(),
-      date: new Date().toISOString(),
-    };
-    all[productId] = [newReview, ...list];
-    saveReviews(all);
-    setRating(0);
-    setText('');
+    setSubmitting(true);
     setSubmitMsg('');
-    refresh();
+
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(`${API_BASE}/api/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, productId, rating, text: text.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRating(0);
+        setText('');
+        refresh();
+      } else {
+        setSubmitMsg(data.error || 'Failed to submit review.');
+      }
+    } catch {
+      // 后端不可用，写入 localStorage
+      const newReview = {
+        id: Date.now(),
+        author: user?.name || 'Anonymous',
+        rating,
+        text: text.trim(),
+        date: new Date().toISOString(),
+      };
+      try {
+        const all = JSON.parse(localStorage.getItem('product_reviews')) || {};
+        all[productId] = [newReview, ...(all[productId] || [])];
+        localStorage.setItem('product_reviews', JSON.stringify(all));
+      } catch {}
+      setRating(0);
+      setText('');
+      refresh();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const avgRating = reviews.length
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : null;
+
+  // 删除评价
+  const handleDelete = async (reviewId) => {
+    if (!window.confirm('Are you sure you want to delete this review?')) return;
+
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(`${API_BASE}/api/reviews`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, reviewId }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error();
+    } catch {
+      // 后端不可用，从 localStorage 删除
+      try {
+        const all = JSON.parse(localStorage.getItem('product_reviews')) || {};
+        all[productId] = (all[productId] || []).filter((r) => r.id !== reviewId);
+        localStorage.setItem('product_reviews', JSON.stringify(all));
+      } catch {}
+    }
+    setDeletedMsg('Review deleted');
+    setTimeout(() => setDeletedMsg(''), 2500);
+    refresh();
+  };
 
   return (
     <section className="reviews-section">
@@ -114,8 +195,18 @@ export default function ProductReviews({ productId, productName }) {
                   ))}
                 </span>
                 <span className="review-date">{new Date(r.date).toLocaleDateString()}</span>
+                {user?.name === r.author && (
+                  <button className="review-delete" onClick={() => handleDelete(r.id)} title="Delete review">✕</button>
+                )}
               </div>
               <p className="review-text">{r.text}</p>
+              {r.reply && (
+                <div className="review-reply">
+                  <span className="review-reply-author">{r.reply.author} — Store Owner</span>
+                  <p className="review-reply-text">{r.reply.text}</p>
+                  <span className="review-reply-date">{new Date(r.reply.date).toLocaleDateString()}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -157,13 +248,18 @@ export default function ProductReviews({ productId, productName }) {
         </div>
 
         {submitMsg && <p className="review-error">{submitMsg}</p>}
+        {deletedMsg && <p className="review-success">{deletedMsg}</p>}
 
-        {user ? (
+        {verifying ? (
+          <p className="review-verifying">Checking purchase status...</p>
+        ) : user ? (
           hasPurchased ? (
-            <button type="submit" className="review-submit">Submit Review</button>
+            <button type="submit" className="review-submit" disabled={submitting}>
+              {submitting ? 'Submitting...' : 'Submit Review'}
+            </button>
           ) : (
             <button type="button" className="review-submit review-submit-disabled" disabled>
-              You must purchase this product to review
+              You must purchase and receive this product to review
             </button>
           )
         ) : (

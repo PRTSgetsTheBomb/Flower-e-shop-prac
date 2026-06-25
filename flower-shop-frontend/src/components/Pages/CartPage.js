@@ -41,13 +41,12 @@ import FadeInUp from '../Generic/FadeInUp';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { fetchAllProducts } from '../../api/products';
-import ProductCard from '../Pages/ProductDetail';
 import '../../PageStyles/product.css';
 import '../../PageStyles/CartPage.css';
 
 function CartPage() {
   // 从 CartContext 解构出购物车数据和操作方法
-  const { cart, removeFromCart, updateQty, clearCart, totalPrice } = useCart();
+  const { cart, removeFromCart, updateQty, updateDeliveryMethod, updateDeliveryDate, clearCart, totalPrice } = useCart();
   const { user } = useAuth();
 
   // 推荐商品
@@ -95,9 +94,35 @@ function CartPage() {
                 </p>
                 {item.deliveryDate && (
                   <p className="cart-item-date">
-                    {item.deliveryMethod === 'pickup' ? 'Pickup' : 'Delivery'}: {item.deliveryDate}
+                    <input
+                      type="date"
+                      className="cart-date-input"
+                      value={item.deliveryDate}
+                      min={(() => {
+                        const d = new Date();
+                        if (item.deliveryMethod === 'pickup') d.setDate(d.getDate() + 1);
+                        else if (d.getHours() >= 13) d.setDate(d.getDate() + 1);
+                        return d.toISOString().split('T')[0];
+                      })()}
+                      onChange={(e) => updateDeliveryDate(item.id, e.target.value)}
+                    />
                   </p>
                 )}
+                {/* 切换配送方式 */}
+                <div className="cart-item-method">
+                  <button
+                    className={`method-btn${item.deliveryMethod === 'pickup' ? ' active' : ''}`}
+                    onClick={() => updateDeliveryMethod(item.id, 'pickup')}
+                  >
+                    Pickup
+                  </button>
+                  <button
+                    className={`method-btn${item.deliveryMethod !== 'pickup' ? ' active' : ''}`}
+                    onClick={() => updateDeliveryMethod(item.id, 'delivery')}
+                  >
+                    Delivery
+                  </button>
+                </div>
               </div>
 
               {/* 数量选择器：减号 / 数字 / 加号 */}

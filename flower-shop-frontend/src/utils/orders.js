@@ -37,24 +37,42 @@ export function addOrder(email, items, total, delivery) {
   const userOrders = all[email] || [];
   const order = {
     id: `ORD-${Date.now()}`,
+    wooCommerceId: null,
     date: new Date().toISOString(),
     items: items.map((item) => ({
       id: item.id,
       name: item.name,
+      nameSlug: item.nameSlug || item.slug || '',
+      slug: item.slug || '',
       qty: item.qty,
       price: parseFloat(item.sale_price) || parseFloat(item.price) || 0,
       image: item.image,
       deliveryDate: item.deliveryDate,
       deliveryMethod: item.deliveryMethod,
+      giftMessage: item.giftMessage || '',
     })),
     total,
     delivery,
     paymentMethod: delivery?.paymentMethod || null,
-    status: 'Paid',
+    status: 'On Hold',  // 初始状态为 On Hold，等待商家在后台改为 Processing
   };
   all[email] = [order, ...userOrders];
   saveOrders(all);
   return order;
+}
+
+/**
+ * 更新本地订单的 WooCommerce ID（同步后回写）
+ */
+export function updateOrderWcId(email, localOrderId, wcOrderId) {
+  const all = getAllOrders();
+  const userOrders = all[email] || [];
+  const idx = userOrders.findIndex((o) => o.id === localOrderId);
+  if (idx !== -1) {
+    userOrders[idx] = { ...userOrders[idx], wooCommerceId: wcOrderId };
+    all[email] = userOrders;
+    saveOrders(all);
+  }
 }
 
 /**
