@@ -78,14 +78,22 @@
 ### 客户端
 怎么能够让商家和客户更好的联动
 ~~1. 发一个Confirmation Email或短信（订单状态）~~ ✅ 已实现 - Brevo SMTP 订单确认邮件
-// 1. 状态确认邮件
+~~1. 状态确认邮件~~
 1. 用户体验优化
+2. Deliveiry Area：添加地图，配送过的区域高亮并配上数字
+3. Product Analysis信息补全：单价，配送费（按地区），Product行可以展开
+4. 尽可能整合到一个Page上
+5. 字体选择
 
 ### 商家端
+| 事项 | 说明 |
+|------|------|
+| 后端聚合 API | 三个端点：`/api/analytics/summary`、`/api/analytics/delivery-areas`、`/api/analytics/products` |
+| DashBoard | 添加时间选项
+
 |运费| 计算到不同地区的运费
 // Orders界面：分类Shipped/Pickup/Delivered/PickedUp
 // 可以在Dashboard看到当前有多少订单需要处理（有多少要配送，有多少要自提），每天营业额是多少，Sales相关数据
-尝试：定制记录客户的配送地址，看哪些地区有更多的购买（delivery），购买的哪种花，看delivery和pickup比例
 // 后续尝试（不用急）：用AI帮助店主分析数据，给店主提供数据报告
 
 ## 优化建议
