@@ -32,8 +32,8 @@ function DeliveryArea() {
           <Link key="prahran" to="/prahran-florist">Florist Prahran</Link>
           {/* 从 Areas.js 动态生成配送区域链接 */}
           {areas.map((area) => (
-            <Link key={area} to={`/delivery/${toSlug(area)}`}>
-              Flower Delivery {area}
+            <Link key={area.name} to={`/delivery/${toSlug(area.name)}`}>
+              Flower Delivery {area.name}
             </Link>
           ))}
         </div>

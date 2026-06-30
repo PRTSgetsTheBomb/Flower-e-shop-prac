@@ -509,7 +509,7 @@ app.post('/api/can-review', async (req, res) => {
     try {
       const { data: customer } = await wcApi.get(`customers/${wpUser.id}`);
       customerEmail = customer.email || '';
-    } catch {}
+    } catch { }
 
     // 获取该用户的所有已完成的 WooCommerce 订单
     let orders = [];
@@ -520,7 +520,7 @@ app.post('/api/can-review', async (req, res) => {
         per_page: 100,
       });
       orders = byCustomer.data;
-    } catch {}
+    } catch { }
 
     // 如果按 customer_id 没查到，改用 email 搜索
     if (orders.length === 0 && customerEmail) {
@@ -531,7 +531,7 @@ app.post('/api/can-review', async (req, res) => {
           per_page: 100,
         });
         orders = byEmail.data;
-      } catch {}
+      } catch { }
     }
 
     const canReview = orders.some(order =>
@@ -588,7 +588,7 @@ app.get('/api/reviews', async (req, res) => {
           date: adminReply.date,
         };
       }
-    } catch {}
+    } catch { }
   }
 
   res.json(reviews);
@@ -1131,11 +1131,15 @@ app.get('/api/analytics/products', async (req, res) => {
             deliveryQty: 0,
             pickupQty: 0,
             orderCount: 0,
+            priceSum: 0,
+            priceCount: 0,
           };
         }
         productMap[id].totalQty += item.quantity;
         productMap[id].totalRevenue += parseFloat(item.total || 0);
         productMap[id].orderCount++;
+        productMap[id].priceSum += parseFloat(item.price || 0) * item.quantity;
+        productMap[id].priceCount += item.quantity;
         if (method === 'delivery') productMap[id].deliveryQty += item.quantity;
         else productMap[id].pickupQty += item.quantity;
       }
@@ -1143,9 +1147,17 @@ app.get('/api/analytics/products', async (req, res) => {
 
     const products = Object.values(productMap)
       .map(p => ({
-        ...p,
+        productId: p.productId,
+        name: p.name,
+        category: p.category,
+        categories: p.categories,
+        totalQty: p.totalQty,
         totalRevenue: Math.round(p.totalRevenue * 100) / 100,
+        deliveryQty: p.deliveryQty,
+        pickupQty: p.pickupQty,
+        orderCount: p.orderCount,
         deliveryRatio: p.totalQty > 0 ? Math.round((p.deliveryQty / p.totalQty) * 10000) / 100 : 0,
+        unitPrice: p.priceCount > 0 ? Math.round((p.priceSum / p.priceCount) * 100) / 100 : 0,
       }))
       .sort((a, b) => b.totalQty - a.totalQty);
 

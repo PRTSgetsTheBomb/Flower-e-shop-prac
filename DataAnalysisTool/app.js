@@ -181,7 +181,7 @@ function updateYearSummary(monthly, yearFilter) {
   const totalRevenue = yearData.reduce((s, m) => s + m.revenue, 0);
   const avgMonthly = Math.round(totalOrders / yearData.length);
   const busiest = yearData.reduce((a, b) => a.orderCount > b.orderCount ? a : b);
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const busiestMonth = months[parseInt(busiest.month.split('-')[1]) - 1];
 
   document.getElementById('yearSummaryOrders').textContent = totalOrders;
@@ -383,13 +383,14 @@ async function loadDeliveryAreas() {
 
   // 柱状图
   renderAreasChart(areas);
+  renderDeliveryMap(areas);
 
   // 表格
   const tbody = document.getElementById('areasBody');
   tbody.innerHTML = '';
 
   if (areas.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8899aa;">No delivery data available.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8899aa;">No delivery data available.</td></tr>';
     return;
   }
 
@@ -398,9 +399,8 @@ async function loadDeliveryAreas() {
     tr.innerHTML = `
       <td class="rank-col">${i + 1}</td>
       <td class="suburb-link" data-suburb="${area.suburb}"><span>${area.suburb || 'Unknown'}</span></td>
-      <td>${area.orderCount}</td>
+      <td style="font-weight:600;">${area.orderCount}</td>
       <td>$${area.totalRevenue.toFixed(2)}</td>
-      <td style="font-size:12px;color:#666;line-height:1.7;">${(area.topProducts || []).map(p => `${p.name} (×${p.qty})`).join('<br>') || '—'}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -492,6 +492,7 @@ async function loadProducts() {
       <td class="product-name">${p.name}</td>
       <td>${p.totalQty}</td>
       <td>$${p.totalRevenue.toFixed(2)}</td>
+      <td>$${p.unitPrice?.toFixed(2) || '—'}</td>
       <td>${p.deliveryQty}</td>
       <td>${p.pickupQty}</td>
       <td>
@@ -738,8 +739,8 @@ function renderAreaTrend(monthlyTrend) {
   const labels = monthlyTrend.map(m => m.month);
   const monthsAbbr = labels.map(m => {
     const [y, mo] = m.split('-');
-    const ms = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return `${ms[parseInt(mo)-1]} ${y}`;
+    const ms = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${ms[parseInt(mo) - 1]} ${y}`;
   });
 
   chartAreaDetail = new Chart(ctx, {
@@ -822,4 +823,101 @@ function renderAreaTopProducts(topProducts) {
       },
     },
   });
+}
+
+// ============================================================
+//  Delivery Map — Leaflet 气泡地图
+// ============================================================
+
+const suburbCoords = {
+  'Melbourne CBD': [-37.8136, 144.9631],
+  'Southbank': [-37.8200, 144.9600],
+  'Port Melbourne': [-37.8267, 144.9400],
+  'Richmond': [-37.8231, 145.0019],
+  'South Yarra': [-37.8383, 144.9917],
+  'Windsor': [-37.8517, 144.9917],
+  'St Kilda': [-37.8676, 144.9800],
+  'Armadale': [-37.8550, 145.0167],
+  'Malvern': [-37.8583, 145.0250],
+  'Camberwell': [-37.8322, 145.0694],
+  'Bentleigh': [-37.9181, 145.0356],
+};
+
+let deliveryMap;
+
+function renderDeliveryMap(areas) {
+  const container = document.getElementById('deliveryMap');
+  if (!container) return;
+
+  if (deliveryMap) { deliveryMap.remove(); deliveryMap = null; }
+
+  deliveryMap = L.map('deliveryMap', { zoomSnap: 0.5, zoomDelta: 0.5 })
+    .setView([-37.85, 144.98], 12);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19,
+  }).addTo(deliveryMap);
+
+  setTimeout(() => deliveryMap.invalidateSize(), 100);
+
+  const maxOrders = Math.max(...areas.map(a => a.orderCount), 1);
+  const maxRevenue = Math.max(...areas.map(a => a.totalRevenue), 1);
+
+  areas.forEach(area => {
+    const coord = suburbCoords[area.suburb];
+    if (!coord) return;
+
+    const radius = 15 + (area.orderCount / maxOrders) * 35;
+    const intensity = area.totalRevenue / maxRevenue;
+    const r = Math.round(30 + (1 - intensity) * 120);
+    const g = Math.round(60 + (1 - intensity) * 100);
+    const b = Math.round(140 + (1 - intensity) * 115);
+
+    // 外圈（半透明描边）
+    L.circleMarker(coord, {
+      radius: radius + 4,
+      color: '#fff',
+      weight: 3,
+      opacity: 0.8,
+      fill: false,
+    }).addTo(deliveryMap);
+
+    // 内圈（填充色）
+    const circle = L.circleMarker(coord, {
+      radius,
+      fillColor: `rgb(${r},${g},${b})`,
+      color: '#fff',
+      weight: 1.5,
+      opacity: 1,
+      fillOpacity: 0.85,
+    }).addTo(deliveryMap);
+
+    // 数字标签（用自定义图标居中显示订单数）
+    const icon = L.divIcon({
+      className: 'map-label',
+      html: `<strong>${area.orderCount}</strong>`,
+      iconSize: [40, 20],
+      iconAnchor: [20, 10],
+    });
+    L.marker(coord, { icon, interactive: false, keyboard: false }).addTo(deliveryMap);
+
+    // 鼠标悬停显示详情
+    circle.bindTooltip(
+      `<strong>${area.suburb}</strong><br>Orders: ${area.orderCount}<br>Revenue: $${area.totalRevenue}`,
+      { direction: 'top', offset: [0, -radius - 10] }
+    );
+
+    circle.on('click', () => {
+      const link = document.querySelector(`.suburb-link[data-suburb="${area.suburb}"]`);
+      if (link) link.click();
+      else openAreaDetail(area.suburb);
+    });
+  });
+
+  // 自适应视图
+  const allCoords = areas.map(a => suburbCoords[a.suburb]).filter(Boolean);
+  if (allCoords.length > 0) {
+    deliveryMap.fitBounds(L.latLngBounds(allCoords), { padding: [30, 30] });
+  }
 }

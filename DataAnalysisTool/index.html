@@ -6,6 +6,8 @@
   <title>Pisces Flower — Analytics Dashboard</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
   <header class="dashboard-header">
@@ -109,19 +111,26 @@
           </div>
         </div>
       </div>
-      <div class="table-card">
-        <table id="areasTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Suburb</th>
-              <th>Orders</th>
-              <th>Revenue</th>
-              <th>Top Products</th>
-            </tr>
-          </thead>
-          <tbody id="areasBody"></tbody>
-        </table>
+      <div class="charts-row">
+        <div class="chart-card">
+          <h3>Delivery Map</h3>
+          <div id="deliveryMap" style="height:400px; border-radius:8px; z-index:1;"></div>
+        </div>
+        <div>
+          <div class="table-card" style="height:500px; overflow-y:auto;">
+            <table id="areasTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Suburb</th>
+                  <th>Orders</th>
+                  <th>Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="areasBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -150,6 +159,7 @@
               <th>Product</th>
               <th>Total Sold</th>
               <th>Revenue</th>
+              <th>Unit Price</th>
               <th>Delivery Qty</th>
               <th>Pickup Qty</th>
               <th>Delivery %</th>

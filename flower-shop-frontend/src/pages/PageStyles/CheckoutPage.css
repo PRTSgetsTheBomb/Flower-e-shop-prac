@@ -279,3 +279,22 @@
   cursor: pointer;
   box-sizing: border-box;
 }
+
+/* -- 自定义郊区输入模式 -- */
+.suburb-back-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.suburb-back-btn:hover {
+  border-color: #4a6cf7;
+  color: #4a6cf7;
+}

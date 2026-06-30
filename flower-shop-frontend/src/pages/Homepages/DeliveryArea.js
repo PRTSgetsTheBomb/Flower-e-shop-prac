@@ -23,8 +23,8 @@ function DeliveryArea() {
         </p>
         <div className="delivery-grid">
           {areas.map((area) => (
-            <Link key={area} to={`/delivery/${area.toLowerCase().replace(/\s+/g, '-')}`} className="delivery-btn">
-              {area}
+            <Link key={area.name} to={`/delivery/${area.name.toLowerCase().replace(/\s+/g, '-')}`} className="delivery-btn">
+              {area.name}
             </Link>
           ))}
         </div>

@@ -12,7 +12,7 @@
  * - 右侧订单摘要实时同步购物车数据
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
@@ -21,13 +21,12 @@ import StripePayment from '../../components/StripePayment';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { addOrder, updateOrderWcId } from '../../utils/orders';
-import deliveryAreas from '../../components/Areas';
+import deliveryAreas, { getShippingBySuburb, getShippingBySuburbAsync } from '../../components/Areas';
 import '../PageStyles/CheckoutPage.css';
 
 // Stripe 公钥（测试模式）
 const stripePromise = loadStripe('pk_test_51TilJyFsfWLJQAuMEHQ7TNiDLcgNHMN2zvs74sY4r9ppxSkIya35TXJjrBGS7svvkdVSGQMqOHlJ4BtE1GSONP7e00YGo3HnpZ');
 
-const DELIVERY_FEE = 15;
 const TAX_RATE = 0.1;
 const FREE_SHIPPING_THRESHOLD = 150;
 
@@ -42,19 +41,40 @@ function CheckoutPage() {
     const [suburbError, setSuburbError] = useState('');
     const stripeRef = useRef(null);    // 保存 stripe 实例
 
-    //计算运费
-    const hasDelivery = cart.some(item => item.deliveryMethod !== 'pickup');
-    const deliverySubtotal = cart
-        .filter(item => item.deliveryMethod !== 'pickup')
-        .reduce((sum, item) => sum + item.qty * (parseFloat(item.sale_price) || parseFloat(item.price) || 0), 0)
-    const shipping = hasDelivery && deliverySubtotal < FREE_SHIPPING_THRESHOLD ? DELIVERY_FEE : 0;
-    const tax = totalPrice * TAX_RATE;
-    const total = totalPrice + shipping + tax;
+    // ---- 郊区选择模式与运费计算 ----
+    const [suburbMode, setSuburbMode] = useState('select');    // 'select' | 'custom'
+    const [customSuburb, setCustomSuburb] = useState('');
+    const [shippingCalc, setShippingCalc] = useState({ fee: null, distance: null, known: false, loading: false });
 
-    const validatePhone = (phone) => {
-        const cleaned = phone.replace(/\s/g, '');
-        return /^(04\d{8}|0[23578]\d{8}|\+614\d{8}|\+61[23578]\d{8})$/.test(cleaned);
-    };
+    // 当 suburb 变化时重新计算运费（已知郊区即时、未知 via API）
+    useEffect(() => {
+        const name = suburbMode === 'select' ? form.suburb : customSuburb;
+        if (!name) {
+            setShippingCalc({ fee: null, distance: null, known: false, loading: false });
+            return;
+        }
+        // 已知郊区 → 同步，即时响应
+        const sync = getShippingBySuburb(name);
+        if (sync.fee !== null || sync.distance !== null) {
+            setShippingCalc({ ...sync, known: true, loading: false });
+            return;
+        }
+        // 未知郊区 → 异步 Nominatim API 兜底
+        setShippingCalc((prev) => ({ ...prev, loading: true }));
+        getShippingBySuburbAsync(name).then((result) => {
+            setShippingCalc({ ...result, loading: false });
+        });
+    }, [form.suburb, customSuburb, suburbMode]);
+
+    // 初始化：如果 localStorage 中保存的 suburb 不在预置列表，切到自定义模式
+    useEffect(() => {
+        if (form.suburb && !deliveryAreas.some(a => a.name === form.suburb)) {
+            setSuburbMode('custom');
+            setCustomSuburb(form.suburb);
+        }
+        // 只在组件挂载时运行一次
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // 用一个对象管理所有表单字段，handleChange 统一更新
     const [form, setForm] = useState(() => {
@@ -70,6 +90,22 @@ function CheckoutPage() {
             postcode: '',
         };
     });
+
+    // 计算运费（从 shippingCalc 状态获得，支持同步/异步两种来源）
+    const hasDelivery = cart.some(item => item.deliveryMethod !== 'pickup');
+    const deliverySubtotal = cart
+        .filter(item => item.deliveryMethod !== 'pickup')
+        .reduce((sum, item) => sum + item.qty * (parseFloat(item.sale_price) || parseFloat(item.price) || 0), 0)
+    const { fee: shippingFee, distance } = shippingCalc;
+    const isFreeShipping = hasDelivery && (deliverySubtotal >= FREE_SHIPPING_THRESHOLD);
+    const shipping = hasDelivery && !isFreeShipping && shippingFee !== null ? shippingFee : 0;
+    const tax = totalPrice * TAX_RATE;
+    const total = totalPrice + shipping + tax;
+
+    const validatePhone = (phone) => {
+        const cleaned = phone.replace(/\s/g, '');
+        return /^(04\d{8}|0[23578]\d{8}|\+614\d{8}|\+61[23578]\d{8})$/.test(cleaned);
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -102,10 +138,19 @@ function CheckoutPage() {
         }
 
         // Suburb 最终验证（仅配送订单）
-        if (hasDelivery && !form.suburb) {
-            setSuburbError('Please select a delivery area.');
-            setSubmitting(false);
-            return;
+        if (hasDelivery) {
+            const suburbName = suburbMode === 'custom' ? customSuburb : form.suburb;
+            if (!suburbName) {
+                setSuburbError('Please select or enter a delivery area.');
+                setSubmitting(false);
+                return;
+            }
+            // 还要确认运费有效（即配送范围内）
+            if (shippingFee === null && !shippingCalc.loading) {
+                setSuburbError('Sorry, we currently do not deliver to this area.');
+                setSubmitting(false);
+                return;
+            }
         }
 
         setSubmitting(true);
@@ -310,13 +355,20 @@ function CheckoutPage() {
                                                 onChange={(e) => {
                                                     const addr = user.addresses.find(a => a.id === e.target.value);
                                                     if (addr) {
+                                                        const isKnown = deliveryAreas.some(a => a.name === addr.suburb);
                                                         setForm(prev => ({
                                                             ...prev,
                                                             address: addr.street || '',
-                                                            suburb: addr.suburb || '',
+                                                            suburb: isKnown ? addr.suburb : '',
                                                             postcode: addr.postcode || '',
                                                         }));
-                                                        setSuburbError(''); try { localStorage.setItem('checkout_suburb', addr.suburb || ''); } catch { }
+                                                        setSuburbError('');
+                                                        try { localStorage.setItem('checkout_suburb', addr.suburb || ''); } catch { }
+                                                        // 如果保存的地址不在预置列表，自动切到自定义模式
+                                                        if (!isKnown && addr.suburb) {
+                                                            setSuburbMode('custom');
+                                                            setCustomSuburb(addr.suburb);
+                                                        }
                                                     }
                                                 }}
                                             >
@@ -336,25 +388,58 @@ function CheckoutPage() {
                                     </div>
                                     <div className="form-row">
                                         <div className="form-group suburb-group">
-                                            <label>Supported Delivery Area *</label>
-                                            <select
-                                                name="suburb"
-                                                value={form.suburb}
-                                                onChange={(e) => {
-                                                    setForm({ ...form, suburb: e.target.value });
-                                                    setSuburbError('');
-                                                }}
-                                                className={suburbError ? 'input-error' : ''}
-                                                required
-                                            >
-                                                <option value="">Select your suburb...</option>
-                                                {deliveryAreas.map((area) => (
-                                                    <option key={area} value={area}>{area}</option>
-                                                ))}
-                                            </select>
-                                            {suburbError && (
-                                                <span className="field-error">Please select a delivery area.</span>
+                                            <label>Delivery Area *</label>
+                                            {suburbMode === 'select' ? (
+                                                <select
+                                                    name="suburb"
+                                                    value={form.suburb}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === '__other__') {
+                                                            setSuburbMode('custom');
+                                                            setForm({ ...form, suburb: '' });
+                                                        } else {
+                                                            setForm({ ...form, suburb: val });
+                                                            setSuburbError('');
+                                                        }
+                                                    }}
+                                                    className={suburbError ? 'input-error' : ''}
+                                                    required
+                                                >
+                                                    <option value="">Select your suburb...</option>
+                                                    {deliveryAreas.map((area) => (
+                                                        <option key={area.name} value={area.name}>{area.name}</option>
+                                                    ))}
+                                                    <option value="__other__">Other suburb not listed...</option>
+                                                </select>
+                                            ) : (
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                    <input
+                                                        type="text"
+                                                        value={customSuburb}
+                                                        onChange={(e) => {
+                                                            setCustomSuburb(e.target.value);
+                                                            setSuburbError('');
+                                                        }}
+                                                        placeholder="Type your suburb name..."
+                                                        className={suburbError ? 'input-error' : ''}
+                                                        required
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSuburbMode('select');
+                                                            setCustomSuburb('');
+                                                            setShippingCalc({ fee: null, distance: null, known: false, loading: false });
+                                                        }}
+                                                        className="suburb-back-btn"
+                                                    >
+                                                        Back to list
+                                                    </button>
+                                                </div>
                                             )}
+                                            {suburbError && <span className="field-error">Please select a delivery area.</span>}
                                         </div>
                                         <div className="form-group">
                                             <label>Postcode *</label>
@@ -386,16 +471,31 @@ function CheckoutPage() {
                                 <span>Subtotal: </span>
                                 <span>${totalPrice.toFixed(2)}</span>
                             </div>
-                            {shipping > 0 ? (
+                            {shippingCalc.loading ? (
+                                <div className="checkout-summary-shipping">
+                                    <span>Shipping: </span>
+                                    <span style={{ color: '#8899aa' }}>Checking area...</span>
+                                </div>
+                            ) : shipping > 0 ? (
                                 <>
                                     <div className="checkout-summary-shipping">
-                                        <span>Shipping: </span>
-                                        <span>${DELIVERY_FEE.toFixed(2)}</span>
+                                        <span>Shipping ({distance} km): </span>
+                                        <span>${shipping.toFixed(2)}</span>
                                     </div>
+                                    {!shippingCalc.known && (
+                                        <p style={{ fontSize: 13, color: '#e67e22', margin: '4px 0' }}>
+                                            * Extended delivery area
+                                        </p>
+                                    )}
                                     <div>
                                         <p><strong>Free shipping for orders over $150!</strong></p>
                                     </div>
                                 </>
+                            ) : hasDelivery && shippingFee === null && !shippingCalc.loading ? (
+                                <div className="checkout-summary-shipping">
+                                    <span>Shipping: </span>
+                                    <span style={{ color: '#e74c3c' }}>Not available</span>
+                                </div>
                             ) : hasDelivery ? (
                                 <div className="checkout-summary-shipping checkout-summary-shipping-free">
                                     <span>Shipping: </span>
