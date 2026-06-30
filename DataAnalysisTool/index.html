@@ -19,17 +19,10 @@
     </div>
   </header>
 
-  <nav class="tab-bar">
-    <button class="tab active" data-tab="overview">Overview</button>
-    <button class="tab" data-tab="areas">Delivery Areas</button>
-    <button class="tab" data-tab="products">Product Analysis</button>
-    <button class="tab" data-tab="monthly-products">Monthly Products</button>
-    <button class="tab" data-tab="area-detail" id="tab-btn-area-detail" style="display:none;">Area Detail</button>
-  </nav>
-
   <main class="dashboard-body">
-    <!-- ============ Overview Tab ============ -->
-    <section id="tab-overview" class="tab-content active">
+    <div id="page-main">
+    <!-- ============ Overview ============ -->
+    <section id="tab-overview">
       <!-- KPI Cards -->
       <div class="kpi-row">
         <div class="kpi-card">
@@ -100,8 +93,10 @@
       </div>
     </section>
 
-    <!-- ============ Delivery Areas Tab ============ -->
-    <section id="tab-areas" class="tab-content">
+    <hr class="section-divider">
+
+    <!-- ============ Delivery Areas ============ -->
+    <section id="tab-areas">
       <div class="section-toolbar">
         <h2>Delivery by Suburb</h2>
         <span class="toolbar-hint" id="areas-hint"></span>
@@ -130,8 +125,10 @@
       </div>
     </section>
 
-    <!-- ============ Product Analysis Tab ============ -->
-    <section id="tab-products" class="tab-content">
+    <hr class="section-divider">
+
+    <!-- ============ Product Analysis ============ -->
+    <section id="tab-products">
       <div class="section-toolbar">
         <h2>Product Sales Ranking</h2>
         <span class="toolbar-hint" id="products-hint"></span>
@@ -162,9 +159,10 @@
         </table>
       </div>
     </section>
+    </div><!-- /page-main -->
 
-    <!-- ============ Area Detail Tab ============ -->
-    <section id="tab-area-detail" class="tab-content">
+    <!-- ============ Area Detail (独立页面) ============ -->
+    <section id="tab-area-detail" style="display:none;">
       <div class="section-toolbar">
         <button class="btn-back" id="btn-back-areas">&larr; Back to Areas</button>
         <h2 id="area-detail-title">Area Detail</h2>
@@ -209,8 +207,8 @@
       </div>
     </section>
 
-    <!-- ============ Monthly Products Tab ============ -->
-    <section id="tab-monthly-products" class="tab-content">
+    <!-- ============ Monthly Products (disabled) ============ -->
+    <!-- <section id="tab-monthly-products">
       <div class="section-toolbar">
         <h2>Monthly Product Sales Matrix</h2>
         <span class="toolbar-hint" id="monthly-products-hint"></span>
@@ -232,7 +230,7 @@
         <span style="font-size:12px;color:#8899aa;margin-left:8px;">High</span>
       </div>
 
-    </section>
+    </section> -->
   </main>
 
   <script src="app.js"></script>

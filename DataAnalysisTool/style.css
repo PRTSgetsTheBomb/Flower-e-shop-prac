@@ -71,37 +71,11 @@ body {
   cursor: not-allowed;
 }
 
-/* ---- Tab Bar ---- */
-.tab-bar {
-  background: #fff;
-  border-bottom: 1px solid #e0e4ea;
-  padding: 0 32px;
-  display: flex;
-  gap: 0;
-  position: sticky;
-  top: 60px;
-  z-index: 99;
-}
-
-.tab {
-  padding: 14px 24px;
+/* ---- Section Dividers ---- */
+.section-divider {
   border: none;
-  background: transparent;
-  font-size: 14px;
-  color: #666;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-  font-weight: 500;
-}
-
-.tab:hover {
-  color: #1a1a2e;
-}
-
-.tab.active {
-  color: #4a6cf7;
-  border-bottom-color: #4a6cf7;
+  border-top: 1px solid #e0e4ea;
+  margin: 32px 0;
 }
 
 /* ---- Dashboard Body ---- */
@@ -109,14 +83,6 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   padding: 24px 32px;
-}
-
-.tab-content {
-  display: none;
-}
-
-.tab-content.active {
-  display: block;
 }
 
 /* ---- KPI Cards ---- */
@@ -433,8 +399,7 @@ td.suburb-link:hover {
     gap: 8px;
     text-align: center;
   }
-  .tab-bar {
-    overflow-x: auto;
-    padding: 0 16px;
+  .section-divider {
+    margin: 20px 0;
   }
 }

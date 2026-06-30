@@ -30,37 +30,32 @@ let currentYear = 'all';
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  setupTabs();
   loadAll();
 
   // 每 30 分钟自动刷新数据
   setInterval(() => {
     loadAll();
   }, 30 * 60 * 1000);
-});
 
-// ============================================================
-//  Tab 切换
-// ============================================================
-
-function setupTabs() {
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      // 切换 tab 按钮状态
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-
-      // 切换内容面板
-      const target = tab.dataset.tab;
-      document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
-      document.getElementById(`tab-${target}`).classList.add('active');
+  // 返回按钮：恢复主页面，回到地区列表
+  const backBtn = document.getElementById('btn-back-areas');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      document.getElementById('tab-area-detail').style.display = 'none';
+      document.getElementById('page-main').style.display = '';
+      document.getElementById('tab-areas').scrollIntoView({ behavior: 'smooth' });
     });
-  });
-}
+  }
 
-// ============================================================
-//  数据加载入口
-// ============================================================
+  // 事件委托：点击地区链接打开详情
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('.suburb-link');
+    if (link) {
+      const suburb = link.dataset.suburb;
+      if (suburb) openAreaDetail(suburb);
+    }
+  });
+});
 
 async function loadAll() {
   const btn = document.getElementById('btnRefresh');
@@ -72,7 +67,7 @@ async function loadAll() {
       loadSummary(),
       loadDeliveryAreas(),
       loadProducts(),
-      loadMonthlyProducts(),
+      // loadMonthlyProducts(),
     ]);
     document.getElementById('lastUpdate').textContent = `Last updated: ${new Date().toLocaleString()}`;
   } catch (err) {
@@ -85,8 +80,10 @@ async function loadAll() {
 }
 
 function showError(msg) {
-  // 在每个 tab 顶部显示错误
-  document.querySelectorAll('.tab-content').forEach(el => {
+  // 在每个区块顶部显示错误
+  ['tab-overview', 'tab-areas', 'tab-products'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
     let banner = el.querySelector('.error-banner');
     if (!banner) {
       banner = document.createElement('div');
@@ -562,108 +559,108 @@ function renderProductsChart(products) {
 //  4. Monthly Products — 按月 × 商品交叉表
 // ============================================================
 
-async function loadMonthlyProducts() {
-  const res = await fetch(`${API_BASE}/api/analytics/monthly-products`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
+// async function loadMonthlyProducts() {
+//   const res = await fetch(`${API_BASE}/api/analytics/monthly-products`);
+//   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+//   const data = await res.json();
 
-  const { rows, months, products } = data;
-  document.getElementById('monthly-products-hint').textContent =
-    `${months.length} months × ${products.length} products`;
+//   const { rows, months, products } = data;
+//   document.getElementById('monthly-products-hint').textContent =
+//     `${months.length} months × ${products.length} products`;
 
-  // 构建 (month, productId) -> qty 的映射
-  const qtyMap = {};
-  let maxQty = 0;
-  for (const r of rows) {
-    const key = `${r.month}|${r.productId}`;
-    qtyMap[key] = r.qty;
-    if (r.qty > maxQty) maxQty = r.qty;
-  }
+//   // 构建 (month, productId) -> qty 的映射
+//   const qtyMap = {};
+//   let maxQty = 0;
+//   for (const r of rows) {
+//     const key = `${r.month}|${r.productId}`;
+//     qtyMap[key] = r.qty;
+//     if (r.qty > maxQty) maxQty = r.qty;
+//   }
 
-  // 计算各商品总计和每月小计
-  const productTotals = {};
-  for (const p of products) productTotals[p.id] = 0;
-  const monthTotals = {};
-  for (const m of months) monthTotals[m] = 0;
-  let grandTotal = 0;
+//   // 计算各商品总计和每月小计
+//   const productTotals = {};
+//   for (const p of products) productTotals[p.id] = 0;
+//   const monthTotals = {};
+//   for (const m of months) monthTotals[m] = 0;
+//   let grandTotal = 0;
 
-  for (const r of rows) {
-    productTotals[r.productId] = (productTotals[r.productId] || 0) + r.qty;
-    monthTotals[r.month] = (monthTotals[r.month] || 0) + r.qty;
-    grandTotal += r.qty;
-  }
+//   for (const r of rows) {
+//     productTotals[r.productId] = (productTotals[r.productId] || 0) + r.qty;
+//     monthTotals[r.month] = (monthTotals[r.month] || 0) + r.qty;
+//     grandTotal += r.qty;
+//   }
 
-  // 分别计算三个维度的最大值
-  const bodyMax = Math.max(...Object.values(qtyMap), 1);
-  const monthTotalMax = Math.max(...Object.values(monthTotals), 1);
-  const productTotalMax = Math.max(...Object.values(productTotals), 1);
+//   // 分别计算三个维度的最大值
+//   const bodyMax = Math.max(...Object.values(qtyMap), 1);
+//   const monthTotalMax = Math.max(...Object.values(monthTotals), 1);
+//   const productTotalMax = Math.max(...Object.values(productTotals), 1);
 
-  // 热力色样式
-  function heatStyle(val, max) {
-    if (!val || max <= 0) return 'text-align:center;color:#bbb;';
-    const i = val / max;
-    const r = Math.round(240 - i * 210);
-    const g = Math.round(245 - i * 195);
-    const b = Math.round(255 - i * 110);
-    const color = i > 0.45 ? '#fff' : '#1a1a2e';
-    const weight = i > 0.45 ? '700' : '600';
-    return `background:rgb(${r},${g},${b});color:${color};font-weight:${weight};text-align:center;`;
-  }
+//   // 热力色样式
+//   function heatStyle(val, max) {
+//     if (!val || max <= 0) return 'text-align:center;color:#bbb;';
+//     const i = val / max;
+//     const r = Math.round(240 - i * 210);
+//     const g = Math.round(245 - i * 195);
+//     const b = Math.round(255 - i * 110);
+//     const color = i > 0.45 ? '#fff' : '#1a1a2e';
+//     const weight = i > 0.45 ? '700' : '600';
+//     return `background:rgb(${r},${g},${b});color:${color};font-weight:${weight};text-align:center;`;
+//   }
 
-  function cellHtml(val, max) {
-    if (!val || max <= 0) return '<td style="text-align:center;color:#bbb;">-</td>';
-    return `<td style="${heatStyle(val, max)}">${val}</td>`;
-  }
+//   function cellHtml(val, max) {
+//     if (!val || max <= 0) return '<td style="text-align:center;color:#bbb;">-</td>';
+//     return `<td style="${heatStyle(val, max)}">${val}</td>`;
+//   }
 
-  // 渲染表头（加一列"Total"）
-  const thead = document.getElementById('monthlyProductsHead');
-  let headerHtml = '<tr><th>Month</th>';
-  for (const p of products) {
-    const shortName = p.name.length > 30 ? p.name.slice(0, 28) + '...' : p.name;
-    headerHtml += `<th title="${p.name}">${shortName}</th>`;
-  }
-  headerHtml += '<th>Total</th></tr>';
-  thead.innerHTML = headerHtml;
+//   // 渲染表头（加一列"Total"）
+//   const thead = document.getElementById('monthlyProductsHead');
+//   let headerHtml = '<tr><th>Month</th>';
+//   for (const p of products) {
+//     const shortName = p.name.length > 30 ? p.name.slice(0, 28) + '...' : p.name;
+//     headerHtml += `<th title="${p.name}">${shortName}</th>`;
+//   }
+//   headerHtml += '<th>Total</th></tr>';
+//   thead.innerHTML = headerHtml;
 
-  // 渲染表格体
-  const tbody = document.getElementById('monthlyProductsBody');
-  tbody.innerHTML = '';
+//   // 渲染表格体
+//   const tbody = document.getElementById('monthlyProductsBody');
+//   tbody.innerHTML = '';
 
-  const monthsLabel = {
-    '01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun',
-    '07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec',
-  };
+//   const monthsLabel = {
+//     '01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun',
+//     '07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec',
+//   };
 
-  for (const m of months) {
-    const [y, mo] = m.split('-');
-    const label = `${monthsLabel[mo] || mo} ${y}`;
-    const tr = document.createElement('tr');
-    const monthTotal = monthTotals[m] || 0;
+//   for (const m of months) {
+//     const [y, mo] = m.split('-');
+//     const label = `${monthsLabel[mo] || mo} ${y}`;
+//     const tr = document.createElement('tr');
+//     const monthTotal = monthTotals[m] || 0;
 
-    let rowHtml = `<td><strong>${label}</strong></td>`;
-    for (const p of products) {
-      const qty = qtyMap[`${m}|${p.id}`] || 0;
-      rowHtml += cellHtml(qty, bodyMax);
-    }
-    // 本月小计（按 monthTotalMax 独立热力色）
-    rowHtml += `<td style="${heatStyle(monthTotal, monthTotalMax)}">${monthTotal}</td>`;
-    rowHtml += '</tr>';
-    tr.innerHTML = rowHtml;
-    tbody.appendChild(tr);
-  }
+//     let rowHtml = `<td><strong>${label}</strong></td>`;
+//     for (const p of products) {
+//       const qty = qtyMap[`${m}|${p.id}`] || 0;
+//       rowHtml += cellHtml(qty, bodyMax);
+//     }
+//     // 本月小计（按 monthTotalMax 独立热力色）
+//     rowHtml += `<td style="${heatStyle(monthTotal, monthTotalMax)}">${monthTotal}</td>`;
+//     rowHtml += '</tr>';
+//     tr.innerHTML = rowHtml;
+//     tbody.appendChild(tr);
+//   }
 
-  // 总计行（按 productTotalMax 独立热力色）
-  const totalTr = document.createElement('tr');
-  let totalHtml = '<td style="font-weight:700;background:#e8ecf0;">Total</td>';
-  for (const p of products) {
-    const total = productTotals[p.id] || 0;
-    totalHtml += cellHtml(total, productTotalMax);
-  }
-  totalHtml += `<td style="background:rgb(20,45,140);color:#fff;font-weight:700;text-align:center;padding:10px 8px;">${grandTotal}</td>`;
-  totalHtml += '</tr>';
-  totalTr.innerHTML = totalHtml;
-  tbody.appendChild(totalTr);
-}
+//   // 总计行（按 productTotalMax 独立热力色）
+//   const totalTr = document.createElement('tr');
+//   let totalHtml = '<td style="font-weight:700;background:#e8ecf0;">Total</td>';
+//   for (const p of products) {
+//     const total = productTotals[p.id] || 0;
+//     totalHtml += cellHtml(total, productTotalMax);
+//   }
+//   totalHtml += `<td style="background:rgb(20,45,140);color:#fff;font-weight:700;text-align:center;padding:10px 8px;">${grandTotal}</td>`;
+//   totalHtml += '</tr>';
+//   totalTr.innerHTML = totalHtml;
+//   tbody.appendChild(totalTr);
+// }
 
 // ============================================================
 //  5. Area Detail — 配送地区详情
@@ -675,32 +672,17 @@ let currentAreaSuburb = null;
 function openAreaDetail(suburb) {
   currentAreaSuburb = suburb;
 
-  // 显示 area-detail tab 并切换
-  document.getElementById('tab-btn-area-detail').style.display = '';
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
-
-  const tabBtn = document.getElementById('tab-btn-area-detail');
-  tabBtn.style.display = '';
-  tabBtn.classList.add('active');
-  document.getElementById('tab-area-detail').classList.add('active');
-
+  // 切换到详情页
+  document.getElementById('page-main').style.display = 'none';
+  const el = document.getElementById('tab-area-detail');
+  el.style.display = '';
   document.getElementById('area-detail-title').textContent = `Area: ${suburb}`;
   loadAreaDetail(suburb);
-};
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 // 绑定返回按钮和地区点击
 document.addEventListener('DOMContentLoaded', () => {
-  const backBtn = document.getElementById('btn-back-areas');
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
-      document.querySelector('[data-tab="areas"]').classList.add('active');
-      document.getElementById('tab-areas').classList.add('active');
-    });
-  }
-
   // 事件委托：点击地区链接打开详情
   document.addEventListener('click', (e) => {
     const link = e.target.closest('.suburb-link');
