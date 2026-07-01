@@ -39,9 +39,9 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 
 // ---- 距离 → 运费映射 ----
 function distanceToFee(distKm) {
-  if (distKm <= 3)  return 10;
-  if (distKm <= 8)  return 15;
-  if (distKm <= 15) return 20;
+  if (distKm <= 5)  return 10;
+  if (distKm <= 15)  return 15;
+  if (distKm <= 25) return 20;
   return null; // 超出配送范围
 }
 
@@ -103,15 +103,42 @@ export async function lookupSuburbCoords(suburbName) {
   if (cache[key]) return cache[key];
 
   // 3. Nominatim 免费逆地理编码 API
+  // 先用 q 参数（全文搜索）+ 限定州和国，比 city 参数更可靠
+  // 因为 OSM 中郊区可能标记为 suburb/town/village 而非 city
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(suburbName + ', VIC, Australia')}&limit=1`,
-      { headers: { 'User-Agent': 'PiscesFlower/1.0' } }
-    );
-    const data = await res.json();
-    if (!data || data.length === 0) return null;
+    const attempts = [
+      // 优先：限定 Victoria + Australia
+      `q=${encodeURIComponent(suburbName + ', Victoria, Australia')}`,
+      // 兜底：限定 Australia
+      `q=${encodeURIComponent(suburbName + ', Australia')}`,
+    ];
+    let coords = null;
+    for (const qs of attempts) {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&${qs}&limit=1`,
+        {
+          headers: {
+            'User-Agent': 'PiscesFlower/1.0',
+            'Accept': 'application/json',
+          },
+        }
+      );
+      if (res.status === 429) {
+        // rate limited — 等 1 秒重试一次
+        await new Promise(r => setTimeout(r, 1100));
+        continue;
+      }
+      if (!res.ok) continue;
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('json')) continue;
+      const data = await res.json();
+      if (data && data.length > 0) {
+        coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        break;
+      }
+    }
+    if (!coords) return null;
 
-    const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
     // 写缓存
     cache[key] = coords;
     saveCache(cache);

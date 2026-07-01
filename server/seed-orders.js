@@ -31,7 +31,38 @@ const SUBURBS = [
   'Melbourne CBD', 'Armadale', 'Bentleigh', 'Camberwell',
   'Malvern', 'Richmond', 'St Kilda', 'South Yarra',
   'Windsor', 'Southbank', 'Port Melbourne',
+  'Clayton', 'Glen Waverley', 'Brighton', 'Hawthorn',
+  'Caulfield', 'Carnegie', 'Moorabbin',
+  'Cranbourne', 'Werribee', 'Frankston',
 ];
+
+const SUBURB_COORDS = {
+  'Melbourne CBD': [-37.8136, 144.9631],
+  'Armadale': [-37.8550, 145.0167],
+  'Bentleigh': [-37.9181, 145.0356],
+  'Camberwell': [-37.8322, 145.0694],
+  'Malvern': [-37.8583, 145.0250],
+  'Richmond': [-37.8231, 145.0019],
+  'St Kilda': [-37.8676, 144.9800],
+  'South Yarra': [-37.8383, 144.9917],
+  'Windsor': [-37.8517, 144.9917],
+  'Southbank': [-37.8200, 144.9600],
+  'Port Melbourne': [-37.8267, 144.9400],
+  'Clayton': [-37.9180, 145.1200],
+  'Glen Waverley': [-37.8780, 145.1670],
+  'Brighton': [-37.9050, 144.9970],
+  'Hawthorn': [-37.8220, 145.0360],
+  'Caulfield': [-37.8780, 145.0230],
+  'Carnegie': [-37.8950, 145.0570],
+  'Moorabbin': [-37.9410, 145.0520],
+  'Cranbourne': [-38.1131, 145.2787],
+  'Werribee': [-37.9023, 144.6598],
+  'Frankston': [-38.1434, 145.1220],
+};
+
+// 店铺位置（Oakleigh South）
+const STORE_LOCATION = { lat: -37.92, lng: 145.09 };
+const MAX_DELIVERY_KM = 20;
 
 const STREETS = [
   '123 Main St', '45 Queen St', '78 King St', '12 Park Rd',
@@ -136,6 +167,30 @@ function generateItems() {
 }
 
 // ============================================================
+//  距离计算（Haversine）
+// ============================================================
+
+function toRad(deg) {
+  return deg * (Math.PI / 180);
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function canDeliver(suburb) {
+  const coord = SUBURB_COORDS[suburb];
+  if (!coord) return false;
+  const dist = haversineKm(STORE_LOCATION.lat, STORE_LOCATION.lng, coord[0], coord[1]);
+  return dist <= MAX_DELIVERY_KM;
+}
+
+// ============================================================
 //  主逻辑
 // ============================================================
 
@@ -190,7 +245,7 @@ async function seedOrders() {
       const lastName = randomItem(LAST_NAMES);
       const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${randomInt(1, 999)}@example.com`;
       const suburb = randomItem(SUBURBS);
-      const isDelivery = Math.random() < 0.6; // 60% delivery
+      const isDelivery = canDeliver(suburb) && Math.random() < 0.6; // 60% delivery (仅限 20km 内)
 
       const rawDate = randomDate();
       const deliveryDate = rawDate.toISOString().split('T')[0];

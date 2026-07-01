@@ -27,6 +27,14 @@ body {
   min-height: 100vh;
 }
 
+/* ---- 数字等宽字 ---- */
+.num,
+.kpi-value,
+.num-cell {
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Liberation Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Header ---- */
 .dashboard-header {
   background: #1a1a2e;
@@ -146,7 +154,7 @@ body {
 }
 
 .chart-card h3 {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #1a1a2e;
   margin-bottom: 12px;
@@ -198,16 +206,18 @@ table {
 
 #areasTable th:nth-child(1) { width: 40px; }
 #areasTable th:nth-child(2) { width: auto; }
-#areasTable th:nth-child(3) { width: 80px; text-align: center; }
-#areasTable th:nth-child(4) { width: 110px; text-align: right; }
+#areasTable th:nth-child(3) { width: 70px; text-align: center; }
+#areasTable th:nth-child(4) { width: 95px; text-align: right; }
+#areasTable th:nth-child(5) { width: 100px; text-align: right; }
 #areasTable td:nth-child(3) { text-align: center; }
 #areasTable td:nth-child(4) { text-align: right; }
+#areasTable td:nth-child(5) { text-align: right; }
 
 thead th {
   background: #f8f9fb;
   padding: 8px 12px;
   text-align: left;
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: #8899aa;
@@ -219,9 +229,36 @@ thead th {
 }
 
 tbody td {
-  padding: 8px 12px;
+  padding: 10px 12px;
   font-size: 13px;
   border-bottom: 1px solid #f0f2f5;
+}
+
+/* ---- Expandable Product Rows ---- */
+.prod-row {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.prod-row:hover {
+  background: #f0f4ff !important;
+}
+
+.prod-row.expanded {
+  background: #f0f4ff;
+}
+
+.expand-icon {
+  display: inline-block;
+  width: 16px;
+  font-size: 10px;
+  color: #8899aa;
+  transition: transform 0.15s;
+}
+
+.prod-detail-row td {
+  padding: 0 !important;
+  border-bottom: 1px solid #e0e4ea;
 }
 
 tbody tr:last-child td {
@@ -271,6 +308,129 @@ tbody tr:hover {
   font-weight: 600;
   color: #1a1a2e;
   min-width: 48px;
+  text-align: right;
+}
+
+/* ---- Areas Layout: chart left, table+map right, same height ---- */
+.areas-layout {
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+
+.areas-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.areas-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.areas-map-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.areas-map-card h3 {
+  flex-shrink: 0;
+}
+
+.map-container {
+  flex: 1;
+  min-height: 0;
+  border-radius: 8px;
+  z-index: 1;
+}
+
+/* ---- Area Top Products List ---- */
+.area-top-products {
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 500px;
+  overflow-y: auto;
+}
+
+.top-prod-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.top-prod-row:hover {
+  background: #f8f9fb;
+}
+
+.top-prod-img {
+  width: 38px;
+  height: 38px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.top-prod-img-placeholder {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  background: #e8ecf0;
+  color: #8899aa;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.top-prod-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.top-prod-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1a1a2e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-prod-bar-wrap {
+  height: 6px;
+  border-radius: 3px;
+  background: #e8ecf0;
+  overflow: hidden;
+}
+
+.top-prod-bar {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+  transition: width 0.4s ease;
+}
+
+.top-prod-qty {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a2e;
+  flex-shrink: 0;
+  min-width: 36px;
   text-align: right;
 }
 

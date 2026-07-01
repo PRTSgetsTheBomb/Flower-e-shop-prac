@@ -230,7 +230,7 @@ function ProductDetail() {
                                     >
                                         <option value="">Select your suburb...</option>
                                         {deliveryAreas.map((area) => (
-                                            <option key={area} value={area}>{area}</option>
+                                            <option key={area.name} value={area.name}>{area.name}</option>
                                         ))}
                                     </select>
                                     <p className="delivery-hint">

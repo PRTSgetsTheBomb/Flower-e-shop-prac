@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
+
 <body>
   <header class="dashboard-header">
     <div class="header-left">
@@ -23,152 +25,153 @@
 
   <main class="dashboard-body">
     <div id="page-main">
-    <!-- ============ Overview ============ -->
-    <section id="tab-overview">
-      <!-- KPI Cards -->
-      <div class="kpi-row">
-        <div class="kpi-card">
-          <div class="kpi-label">Total Orders</div>
-          <div class="kpi-value" id="kpi-totalOrders">—</div>
+      <!-- ============ Overview ============ -->
+      <section id="tab-overview">
+        <!-- KPI Cards -->
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">Total Orders</div>
+            <div class="kpi-value" id="kpi-totalOrders">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Revenue</div>
+            <div class="kpi-value" id="kpi-totalRevenue">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Delivery</div>
+            <div class="kpi-value" id="kpi-deliveryCount">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Pickup</div>
+            <div class="kpi-value" id="kpi-pickupCount">—</div>
+          </div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Total Revenue</div>
-          <div class="kpi-value" id="kpi-totalRevenue">—</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Delivery</div>
-          <div class="kpi-value" id="kpi-deliveryCount">—</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Pickup</div>
-          <div class="kpi-value" id="kpi-pickupCount">—</div>
-        </div>
-      </div>
 
-      <!-- Charts Row -->
-      <div class="charts-row">
-        <div class="chart-card">
-          <h3>Delivery / Pickup</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartMethod"></canvas>
+        <!-- Charts Row -->
+        <div class="charts-row">
+          <div class="chart-card">
+            <h3>Delivery / Pickup</h3>
+            <div class="chart-wrapper">
+              <canvas id="chartMethod"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Order Status Distribution</h3>
+            <div class="chart-wrapper">
+              <canvas id="chartStatus"></canvas>
+            </div>
           </div>
         </div>
-        <div class="chart-card">
-          <h3>Order Status Distribution</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartStatus"></canvas>
-          </div>
-        </div>
-      </div>
 
-      <!-- Monthly Trend -->
-      <div class="charts-row">
-        <div class="chart-card full-width">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f2f5;">
-            <h3 style="margin:0;padding:0;border:none;">Monthly Trend</h3>
-            <div class="year-tabs" id="yearTabs"></div>
-          </div>
-          <div class="chart-wrapper" style="height:280px;">
-            <canvas id="chartMonthly"></canvas>
-          </div>
-          <div id="yearSummary" style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f2f5;display:none;">
-            <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);gap:12px;margin:0;">
-              <div class="kpi-card" style="padding:12px 16px;">
-                <div class="kpi-label" style="font-size:11px;">Year Orders</div>
-                <div class="kpi-value" id="yearSummaryOrders" style="font-size:20px;">—</div>
-              </div>
-              <div class="kpi-card" style="padding:12px 16px;">
-                <div class="kpi-label" style="font-size:11px;">Year Revenue</div>
-                <div class="kpi-value" id="yearSummaryRevenue" style="font-size:20px;">—</div>
-              </div>
-              <div class="kpi-card" style="padding:12px 16px;">
-                <div class="kpi-label" style="font-size:11px;">Monthly Avg</div>
-                <div class="kpi-value" id="yearSummaryAvg" style="font-size:20px;">—</div>
-              </div>
-              <div class="kpi-card" style="padding:12px 16px;">
-                <div class="kpi-label" style="font-size:11px;">Busiest Month</div>
-                <div class="kpi-value" id="yearSummaryBusiest" style="font-size:16px;">—</div>
+        <!-- Monthly Trend -->
+        <div class="charts-row">
+          <div class="chart-card full-width">
+            <div
+              style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f2f5;">
+              <h3 style="margin:0;padding:0;border:none;">Monthly Trend</h3>
+              <div class="year-tabs" id="yearTabs"></div>
+            </div>
+            <div class="chart-wrapper" style="height:280px;">
+              <canvas id="chartMonthly"></canvas>
+            </div>
+            <div id="yearSummary" style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f2f5;display:none;">
+              <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);gap:12px;margin:0;">
+                <div class="kpi-card" style="padding:12px 16px;">
+                  <div class="kpi-label" style="font-size:11px;">Year Orders</div>
+                  <div class="kpi-value" id="yearSummaryOrders" style="font-size:20px;">—</div>
+                </div>
+                <div class="kpi-card" style="padding:12px 16px;">
+                  <div class="kpi-label" style="font-size:11px;">Year Revenue</div>
+                  <div class="kpi-value" id="yearSummaryRevenue" style="font-size:20px;">—</div>
+                </div>
+                <div class="kpi-card" style="padding:12px 16px;">
+                  <div class="kpi-label" style="font-size:11px;">Monthly Avg</div>
+                  <div class="kpi-value" id="yearSummaryAvg" style="font-size:20px;">—</div>
+                </div>
+                <div class="kpi-card" style="padding:12px 16px;">
+                  <div class="kpi-label" style="font-size:11px;">Busiest Month</div>
+                  <div class="kpi-value" id="yearSummaryBusiest" style="font-size:16px;">—</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <hr class="section-divider">
+      <hr class="section-divider">
 
-    <!-- ============ Delivery Areas ============ -->
-    <section id="tab-areas">
-      <div class="section-toolbar">
-        <h2>Delivery by Suburb</h2>
-        <span class="toolbar-hint" id="areas-hint"></span>
-      </div>
-      <div class="charts-row">
-        <div class="chart-card full-width">
-          <h3>Orders by Area</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartAreas"></canvas>
+      <!-- ============ Delivery Areas ============ -->
+      <section id="tab-areas">
+        <div class="charts-row areas-layout">
+          <div class="section-toolbar" style="grid-column:1 / -1; margin-bottom:0;">
+            <h2>Delivery by Suburb</h2>
+            <span class="toolbar-hint" id="areas-hint"></span>
+          </div>
+          <div class="chart-card" style="margin-bottom:0;">
+            <h3>Orders by Area</h3>
+            <div class="chart-wrapper">
+              <canvas id="chartAreas"></canvas>
+            </div>
+          </div>
+          <div class="areas-right-col">
+            <div class="table-card areas-table-wrap">
+              <table id="areasTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Suburb</th>
+                    <th>Orders</th>
+                    <th>Revenue (Delivery Fee Excluded)</th>
+                    <th>Delivery Fee</th>
+                  </tr>
+                </thead>
+                <tbody id="areasBody"></tbody>
+              </table>
+            </div>
+            <div class="chart-card areas-map-card">
+              <h3>Delivery Map</h3>
+              <div id="deliveryMap" class="map-container"></div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="charts-row">
-        <div class="chart-card">
-          <h3>Delivery Map</h3>
-          <div id="deliveryMap" style="height:400px; border-radius:8px; z-index:1;"></div>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ============ Product Analysis ============ -->
+      <section id="tab-products">
+        <div class="section-toolbar">
+          <h2>Product Sales Ranking</h2>
+          <span class="toolbar-hint" id="products-hint"></span>
         </div>
-        <div>
-          <div class="table-card" style="height:500px; overflow-y:auto;">
-            <table id="areasTable">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Suburb</th>
-                  <th>Orders</th>
-                  <th>Revenue</th>
-                </tr>
-              </thead>
-              <tbody id="areasBody"></tbody>
-            </table>
+        <div class="charts-row">
+          <div class="chart-card full-width">
+            <h3>Top Selling Products</h3>
+            <div class="chart-wrapper" style="height:360px;">
+              <canvas id="chartProducts"></canvas>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ============ Product Analysis ============ -->
-    <section id="tab-products">
-      <div class="section-toolbar">
-        <h2>Product Sales Ranking</h2>
-        <span class="toolbar-hint" id="products-hint"></span>
-      </div>
-      <div class="charts-row">
-        <div class="chart-card full-width">
-          <h3>Top Selling Products</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartProducts"></canvas>
-          </div>
+        <div class="table-card">
+          <table id="productsTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Category</th>
+                <th style="width:50px;">Image</th>
+                <th>Product</th>
+                <th>Total Sold</th>
+                <th>Revenue (Delivery excluded)</th>
+                <th>Unit Price</th>
+                <th>Delivery Qty</th>
+                <th>Pickup Qty</th>
+                <th>Delivery %</th>
+              </tr>
+            </thead>
+            <tbody id="productsBody"></tbody>
+          </table>
         </div>
-      </div>
-      <div class="table-card">
-        <table id="productsTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Category</th>
-              <th>Product</th>
-              <th>Total Sold</th>
-              <th>Revenue</th>
-              <th>Unit Price</th>
-              <th>Delivery Qty</th>
-              <th>Pickup Qty</th>
-              <th>Delivery %</th>
-            </tr>
-          </thead>
-          <tbody id="productsBody"></tbody>
-        </table>
-      </div>
-    </section>
+      </section>
     </div><!-- /page-main -->
 
     <!-- ============ Area Detail (独立页面) ============ -->
@@ -180,39 +183,43 @@
       </div>
 
       <!-- KPI -->
-      <div class="kpi-row" id="area-detail-kpis">
-        <div class="kpi-card"><div class="kpi-label">Orders</div><div class="kpi-value" id="ad-orders">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Revenue</div><div class="kpi-value" id="ad-revenue">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Customers</div><div class="kpi-value" id="ad-customers">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Top Product</div><div class="kpi-value" id="ad-topProduct" style="font-size:20px;">—</div></div>
+      <div class="kpi-row" id="area-detail-kpis" style="grid-template-columns:repeat(5,1fr);">
+        <div class="kpi-card">
+          <div class="kpi-label">Orders</div>
+          <div class="kpi-value" id="ad-orders">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Revenue</div>
+          <div class="kpi-value" id="ad-revenue">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Customers</div>
+          <div class="kpi-value" id="ad-customers">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Busiest Month</div>
+          <div class="kpi-value" id="ad-busiestMonth" style="font-size:20px;">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Top Product</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <img id="ad-topProductImg" style="width:36px;height:36px;object-fit:cover;border-radius:6px;display:none;" alt="" onerror="this.style.display='none'">
+            <div class="kpi-value" id="ad-topProduct" style="font-size:20px;">—</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Monthly Trend Chart -->
+      <!-- Monthly Trend + Top Products -->
       <div class="charts-row">
-        <div class="chart-card full-width">
+        <div class="chart-card">
           <h3>Monthly Orders in This Area</h3>
-          <div class="chart-wrapper" style="height:220px;">
+          <div class="chart-wrapper" style="height:500px;">
             <canvas id="chartAreaDetail"></canvas>
           </div>
         </div>
-      </div>
-
-      <!-- Top Products & Recent Orders -->
-      <div class="charts-row">
         <div class="chart-card">
           <h3>Top Products in This Area</h3>
-          <div class="chart-wrapper" style="height:250px;">
-            <canvas id="chartAreaProducts"></canvas>
-          </div>
-        </div>
-        <div class="chart-card">
-          <h3>Recent Orders</h3>
-          <div class="table-mini-wrap">
-            <table class="table-mini" id="ad-orders-table">
-              <thead><tr><th>Date</th><th>Customer</th><th>Items</th><th>Total</th></tr></thead>
-              <tbody id="ad-orders-body"></tbody>
-            </table>
-          </div>
+          <div id="areaTopProductsList" class="area-top-products"></div>
         </div>
       </div>
     </section>
@@ -245,4 +252,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>

@@ -46,36 +46,6 @@ function CheckoutPage() {
     const [customSuburb, setCustomSuburb] = useState('');
     const [shippingCalc, setShippingCalc] = useState({ fee: null, distance: null, known: false, loading: false });
 
-    // 当 suburb 变化时重新计算运费（已知郊区即时、未知 via API）
-    useEffect(() => {
-        const name = suburbMode === 'select' ? form.suburb : customSuburb;
-        if (!name) {
-            setShippingCalc({ fee: null, distance: null, known: false, loading: false });
-            return;
-        }
-        // 已知郊区 → 同步，即时响应
-        const sync = getShippingBySuburb(name);
-        if (sync.fee !== null || sync.distance !== null) {
-            setShippingCalc({ ...sync, known: true, loading: false });
-            return;
-        }
-        // 未知郊区 → 异步 Nominatim API 兜底
-        setShippingCalc((prev) => ({ ...prev, loading: true }));
-        getShippingBySuburbAsync(name).then((result) => {
-            setShippingCalc({ ...result, loading: false });
-        });
-    }, [form.suburb, customSuburb, suburbMode]);
-
-    // 初始化：如果 localStorage 中保存的 suburb 不在预置列表，切到自定义模式
-    useEffect(() => {
-        if (form.suburb && !deliveryAreas.some(a => a.name === form.suburb)) {
-            setSuburbMode('custom');
-            setCustomSuburb(form.suburb);
-        }
-        // 只在组件挂载时运行一次
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
     // 用一个对象管理所有表单字段，handleChange 统一更新
     const [form, setForm] = useState(() => {
         let savedSuburb = '';
@@ -90,6 +60,48 @@ function CheckoutPage() {
             postcode: '',
         };
     });
+
+    // 当 suburb 变化时重新计算运费（已知郊区即时、未知 via API）
+    // 注意：1000ms 防抖避免突破 Nominatim 1次/秒 限流；ignore 标记清理竞态
+    const shippingRequestedRef = useRef(false);
+    useEffect(() => {
+        let ignore = false;
+        const timer = setTimeout(() => {
+            const name = suburbMode === 'select' ? form.suburb : customSuburb;
+            if (!name) {
+                if (!ignore) setShippingCalc({ fee: null, distance: null, known: false, loading: false });
+                return;
+            }
+            // 已知郊区 → 同步，即时响应
+            const sync = getShippingBySuburb(name);
+            if (sync.fee !== null || sync.distance !== null) {
+                if (!ignore) setShippingCalc({ ...sync, known: true, loading: false });
+                return;
+            }
+            // 未知郊区 → 异步 Nominatim API 兜底
+            if (shippingRequestedRef.current) return; // 已有请求在途中，不再重复发
+            if (!ignore) setShippingCalc((prev) => ({ ...prev, loading: true }));
+            shippingRequestedRef.current = true;
+            getShippingBySuburbAsync(name).then((result) => {
+                if (!ignore) setShippingCalc({ ...result, loading: false });
+                shippingRequestedRef.current = false;
+            });
+        }, 1000);
+        return () => {
+            ignore = true;
+            clearTimeout(timer);
+        };
+    }, [form.suburb, customSuburb, suburbMode]);
+
+    // 初始化：如果 localStorage 中保存的 suburb 不在预置列表，切到自定义模式
+    useEffect(() => {
+        if (form.suburb && !deliveryAreas.some(a => a.name === form.suburb)) {
+            setSuburbMode('custom');
+            setCustomSuburb(form.suburb);
+        }
+        // 只在组件挂载时运行一次
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // 计算运费（从 shippingCalc 状态获得，支持同步/异步两种来源）
     const hasDelivery = cart.some(item => item.deliveryMethod !== 'pickup');
@@ -406,11 +418,12 @@ function CheckoutPage() {
                                                     className={suburbError ? 'input-error' : ''}
                                                     required
                                                 >
-                                                    <option value="">Select your suburb...</option>
+                                                    
                                                     {deliveryAreas.map((area) => (
                                                         <option key={area.name} value={area.name}>{area.name}</option>
                                                     ))}
                                                     <option value="__other__">Other suburb not listed...</option>
+                                                    <option value="">Select your suburb...</option>
                                                 </select>
                                             ) : (
                                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

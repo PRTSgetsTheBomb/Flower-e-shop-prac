@@ -180,14 +180,19 @@ function updateYearSummary(monthly, yearFilter) {
   const totalOrders = yearData.reduce((s, m) => s + m.orderCount, 0);
   const totalRevenue = yearData.reduce((s, m) => s + m.revenue, 0);
   const avgMonthly = Math.round(totalOrders / yearData.length);
-  const busiest = yearData.reduce((a, b) => a.orderCount > b.orderCount ? a : b);
+  const maxCount = Math.max(...yearData.map(m => m.orderCount));
+  const busiestMonths = yearData.filter(m => m.orderCount === maxCount);
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const busiestMonth = months[parseInt(busiest.month.split('-')[1]) - 1];
+  const busiestLabel = busiestMonths.map(m => {
+    const [y, mo] = m.month.split('-');
+    return `${months[parseInt(mo) - 1]} ${y}`;
+  }).join(', ');
+  const tieHint = busiestMonths.length > 1 ? ` (${busiestMonths.length} tied)` : '';
 
   document.getElementById('yearSummaryOrders').textContent = totalOrders;
   document.getElementById('yearSummaryRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
   document.getElementById('yearSummaryAvg').textContent = `${avgMonthly} / mo`;
-  document.getElementById('yearSummaryBusiest').textContent = `${busiestMonth} (${busiest.orderCount})`;
+  document.getElementById('yearSummaryBusiest').textContent = `${busiestLabel} (${maxCount})${tieHint}`;
 }
 
 function renderMonthlyChart(monthly, yearFilter = 'all') {
@@ -390,17 +395,20 @@ async function loadDeliveryAreas() {
   tbody.innerHTML = '';
 
   if (areas.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8899aa;">No delivery data available.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8899aa;">No delivery data available.</td></tr>';
     return;
   }
 
   areas.forEach((area, i) => {
     const tr = document.createElement('tr');
+    const fee = area.deliveryFee;
+    const feeDisplay = fee !== null ? `$${fee.toFixed(2)}` : '<span style="color:#bbb;">—</span>';
     tr.innerHTML = `
       <td class="rank-col">${i + 1}</td>
       <td class="suburb-link" data-suburb="${area.suburb}"><span>${area.suburb || 'Unknown'}</span></td>
-      <td style="font-weight:600;">${area.orderCount}</td>
-      <td>$${area.totalRevenue.toFixed(2)}</td>
+      <td class="num" style="font-weight:600;">${area.orderCount}</td>
+      <td class="num">$${area.totalRevenue.toFixed(2)}</td>
+      <td class="num" style="text-align:right;font-weight:500;">${feeDisplay}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -409,6 +417,10 @@ async function loadDeliveryAreas() {
 function renderAreasChart(areas) {
   const ctx = document.getElementById('chartAreas').getContext('2d');
   if (chartAreas) chartAreas.destroy();
+
+  // 动态调整高度：每个 suburb 分配 32px
+  const wrapper = ctx.canvas.parentElement;
+  wrapper.style.height = Math.max(200, areas.length * 36) + 'px';
 
   const labels = areas.map(a => a.suburb || 'Unknown');
   const values = areas.map(a => a.orderCount);
@@ -437,7 +449,7 @@ function renderAreasChart(areas) {
           ticks: { stepSize: 1 },
         },
         y: {
-          ticks: { font: { size: 11 } },
+          ticks: { font: { size: 12 } },
         },
       },
     },
@@ -465,14 +477,13 @@ async function loadProducts() {
   tbody.innerHTML = '';
 
   if (products.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#8899aa;">No product data available.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#8899aa;">No product data available.</td></tr>';
     return;
   }
 
   products.forEach((p, i) => {
     const deliveryPct = p.deliveryRatio;
     const category = p.category || '-';
-    // 为分类名设置标签色
     const catColors = {
       'Fresh Flowers': '#10b981',
       'Dried Flowers': '#f59e0b',
@@ -485,16 +496,23 @@ async function loadProducts() {
       'Sympathy Flowers': '#64748b',
     };
     const catColor = catColors[category] || '#8899aa';
+    const imgSrc = p.image || '';
+    const imgHtml = imgSrc
+      ? `<img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;display:block;" onerror="this.style.display='none'">`
+      : '';
     const tr = document.createElement('tr');
+    tr.className = 'prod-row';
+    tr.dataset.productId = p.productId;
     tr.innerHTML = `
-      <td class="rank-col">${i + 1}</td>
+      <td class="rank-col"><span class="expand-icon">▶</span> ${i + 1}</td>
       <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;color:#fff;background:${catColor};">${category}</span></td>
+      <td style="text-align:center;">${imgHtml}</td>
       <td class="product-name">${p.name}</td>
-      <td>${p.totalQty}</td>
-      <td>$${p.totalRevenue.toFixed(2)}</td>
-      <td>$${p.unitPrice?.toFixed(2) || '—'}</td>
-      <td>${p.deliveryQty}</td>
-      <td>${p.pickupQty}</td>
+      <td class="num">${p.totalQty}</td>
+      <td class="num">$${p.totalRevenue.toFixed(2)}</td>
+      <td class="num">$${p.unitPrice?.toFixed(2) || '—'}</td>
+      <td class="num">${p.deliveryQty}</td>
+      <td class="num">${p.pickupQty}</td>
       <td>
         <div class="delivery-pct-cell">
           <span class="delivery-pct-bar"><span class="fill" style="width:${deliveryPct}%"></span></span>
@@ -502,57 +520,156 @@ async function loadProducts() {
         </div>
       </td>
     `;
+    tr.addEventListener('click', () => toggleProductDetail(tr, p));
     tbody.appendChild(tr);
   });
+}
+
+function toggleProductDetail(tr, product) {
+  const expanded = tr.classList.toggle('expanded');
+  const icon = tr.querySelector('.expand-icon');
+  if (icon) icon.textContent = expanded ? '▼' : '▶';
+
+  // 查找或创建 detail row
+  let detailRow = tr.nextElementSibling;
+  if (detailRow && detailRow.classList.contains('prod-detail-row')) {
+    detailRow.style.display = expanded ? '' : 'none';
+    return;
+  }
+
+  if (!expanded) return;
+
+  // 创建 detail row
+  detailRow = document.createElement('tr');
+  detailRow.className = 'prod-detail-row';
+  const td = document.createElement('td');
+  td.colSpan = 10;
+  td.style.padding = '0';
+
+  const suburbs = product.topSuburbs || [];
+  if (suburbs.length === 0) {
+    td.innerHTML = '<div style="padding:12px 20px;color:#8899aa;font-size:12px;">No delivery data for this product.</div>';
+  } else {
+    const maxQty = suburbs[0].qty || 1;
+    td.innerHTML = `
+      <div style="padding:10px 20px 14px 40px;background:#fafbfc;">
+        <div style="font-size:12px;font-weight:600;color:#1a1a2e;margin-bottom:8px;">Top Delivery Suburbs</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          ${suburbs.map(s => `
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+              <span style="width:100px;font-weight:500;color:#1a1a2e;">${s.suburb}</span>
+              <span style="flex:1;height:14px;border-radius:3px;background:#e8ecf0;overflow:hidden;">
+                <span style="display:block;height:100%;width:${(s.qty / maxQty) * 100}%;border-radius:3px;background:linear-gradient(90deg,#4a6cf7,#667eea);"></span>
+              </span>
+              <span style="font-weight:600;color:#4a6cf7;min-width:20px;text-align:right;">×${s.qty}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  detailRow.appendChild(td);
+  tr.parentNode.insertBefore(detailRow, tr.nextSibling);
 }
 
 function renderProductsChart(products) {
   const ctx = document.getElementById('chartProducts').getContext('2d');
   if (chartProducts) chartProducts.destroy();
 
-  // 截断过长商品名
-  const labels = products.map(p =>
-    p.name.length > 30 ? p.name.slice(0, 28) + '...' : p.name
-  );
+  // 预加载图片
+  const imagePromises = products.map(p => {
+    if (!p.image) return Promise.resolve(null);
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = p.image;
+    });
+  });
 
-  chartProducts = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Delivery',
-          data: products.map(p => p.deliveryQty),
-          backgroundColor: '#4a6cf7',
-          borderRadius: 4,
+  Promise.all(imagePromises).then(images => {
+    if (chartProducts) chartProducts.destroy();
+
+    const labels = products.map(p =>
+      p.name.length > 30 ? p.name.slice(0, 28) + '...' : p.name
+    );
+
+    // 自定义插件：在 x 轴标签底部绘制商品缩略图
+    const imagePlugin = {
+      id: 'productChartImages',
+      afterDraw(chart) {
+        const { ctx, scales, chartArea: ca } = chart;
+        const xScale = scales.x;
+        const imgSize = 81; // 图片大小
+        const gap = 36; // 跳过标签高度(约15px) + 间隔
+        images.forEach((img, i) => {
+          if (!img) return;
+          const x = xScale.getPixelForValue(i);
+          const ix = x - imgSize / 2;
+          const iy = ca.bottom + gap;
+          ctx.save();
+          const r = 4;
+          ctx.beginPath();
+          ctx.moveTo(ix + r, iy);
+          ctx.lineTo(ix + imgSize - r, iy);
+          ctx.quadraticCurveTo(ix + imgSize, iy, ix + imgSize, iy + r);
+          ctx.lineTo(ix + imgSize, iy + imgSize - r);
+          ctx.quadraticCurveTo(ix + imgSize, iy + imgSize, ix + imgSize - r, iy + imgSize);
+          ctx.lineTo(ix + r, iy + imgSize);
+          ctx.quadraticCurveTo(ix, iy + imgSize, ix, iy + imgSize - r);
+          ctx.lineTo(ix, iy + r);
+          ctx.quadraticCurveTo(ix, iy, ix + r, iy);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(img, ix, iy, imgSize, imgSize);
+          ctx.restore();
+        });
+      },
+    };
+
+    chartProducts = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Delivery',
+            data: products.map(p => p.deliveryQty),
+            backgroundColor: '#4a6cf7',
+            borderRadius: 4,
+          },
+          {
+            label: 'Pickup',
+            data: products.map(p => p.pickupQty),
+            backgroundColor: '#f59e0b',
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { padding: 16, usePointStyle: true },
+          },
         },
-        {
-          label: 'Pickup',
-          data: products.map(p => p.pickupQty),
-          backgroundColor: '#f59e0b',
-          borderRadius: 4,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { padding: 16, usePointStyle: true },
+        scales: {
+          x: {
+            ticks: { font: { size: 11 }, maxRotation: 0, minRotation: 0 },
+            afterFit(scale) {
+              scale.height += 90;
+            },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1 },
+          },
         },
       },
-      scales: {
-        x: {
-          ticks: { font: { size: 10 } },
-        },
-        y: {
-          beginAtZero: true,
-          ticks: { stepSize: 1 },
-        },
-      },
-    },
+      plugins: [imagePlugin],
+    });
   });
 }
 
@@ -703,31 +820,50 @@ async function loadAreaDetail(suburb) {
   document.getElementById('ad-orders').textContent = data.orderCount;
   document.getElementById('ad-revenue').textContent = `$${data.totalRevenue.toFixed(2)}`;
   document.getElementById('ad-customers').textContent = data.uniqueCustomers;
-  document.getElementById('ad-topProduct').textContent = data.topProducts[0]?.name || '—';
+
+  // Top Product(s) — 处理并列
+  const topProdImg = document.getElementById('ad-topProductImg');
+  const topProdEl = document.getElementById('ad-topProduct');
+  if (data.topProducts && data.topProducts.length > 0) {
+    const maxQty = data.topProducts[0].qty;
+    const topList = data.topProducts.filter(p => p.qty === maxQty);
+    const names = topList.map(p => p.name);
+    topProdEl.textContent = names.length <= 2
+      ? names.join(' & ')
+      : names.slice(0, 2).join(', ') + ` & ${names.length - 2} more`;
+    // 显示第一个商品的图片
+    if (topList[0]?.image) {
+      topProdImg.src = topList[0].image;
+      topProdImg.style.display = 'block';
+    } else {
+      topProdImg.style.display = 'none';
+    }
+  } else {
+    topProdEl.textContent = '—';
+    topProdImg.style.display = 'none';
+  }
   document.getElementById('area-detail-hint').textContent = `${data.orderCount} orders, ${data.uniqueCustomers} unique customers`;
+
+  // Busiest Month
+  if (data.monthlyTrend && data.monthlyTrend.length > 0) {
+    const maxCount = Math.max(...data.monthlyTrend.map(m => m.orderCount));
+    const busiestMonths = data.monthlyTrend.filter(m => m.orderCount === maxCount);
+    const ms = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const label = busiestMonths.map(m => {
+      const [y, mo] = m.month.split('-');
+      return `${ms[parseInt(mo) - 1]} ${y}`;
+    }).join(', ');
+    const tieHint = busiestMonths.length > 1 ? ` (${busiestMonths.length} tied)` : '';
+    document.getElementById('ad-busiestMonth').textContent = `${label} (${maxCount})${tieHint}`;
+  } else {
+    document.getElementById('ad-busiestMonth').textContent = '—';
+  }
 
   // Monthly trend chart
   renderAreaTrend(data.monthlyTrend);
 
-  // Top products chart
+  // Top products
   renderAreaTopProducts(data.topProducts);
-
-  // Recent Orders table
-  const tbody = document.getElementById('ad-orders-body');
-  tbody.innerHTML = '';
-  for (const o of data.recentOrders) {
-    const tr = document.createElement('tr');
-    const date = new Date(o.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
-    const items = o.items.map(i => `${i.name} (×${i.qty})`).join(', ');
-    tr.innerHTML = `<td style="white-space:nowrap;font-size:12px;">${date}</td>
-      <td><strong>${o.customer}</strong></td>
-      <td style="font-size:12px;color:#666;">${items}</td>
-      <td>$${o.total.toFixed(2)}</td>`;
-    tbody.appendChild(tr);
-  }
-  if (data.recentOrders.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8899aa;">No orders found.</td></tr>';
-  }
 }
 
 function renderAreaTrend(monthlyTrend) {
@@ -792,37 +928,31 @@ function renderAreaTrend(monthlyTrend) {
 }
 
 function renderAreaTopProducts(topProducts) {
-  const ctx = document.getElementById('chartAreaProducts').getContext('2d');
-  if (chartAreaProducts) chartAreaProducts.destroy();
+  const container = document.getElementById('areaTopProductsList');
+  if (!container) return;
 
-  if (!topProducts || topProducts.length === 0) return;
+  if (!topProducts || topProducts.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:#8899aa;padding:40px 0;">No product data.</div>';
+    return;
+  }
 
-  const labels = topProducts.slice(0, 10).map(p =>
-    p.name.length > 25 ? p.name.slice(0, 23) + '...' : p.name
-  );
+  const sliced = topProducts.slice(0, 10);
+  const maxQty = sliced[0]?.qty || 1;
 
-  chartAreaProducts = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Qty Sold',
-        data: topProducts.slice(0, 10).map(p => p.qty),
-        backgroundColor: '#f59e0b',
-        borderRadius: 4,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      indexAxis: 'y',
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { beginAtZero: true, ticks: { stepSize: 1 } },
-        y: { ticks: { font: { size: 10 } } },
-      },
-    },
-  });
+  container.innerHTML = sliced.map((p, i) => {
+    const barW = Math.round((p.qty / maxQty) * 100);
+    const imgHtml = p.image
+      ? `<img src="${p.image}" class="top-prod-img" onerror="this.style.display='none'">`
+      : `<div class="top-prod-img-placeholder">${i + 1}</div>`;
+    return `<div class="top-prod-row">
+      ${imgHtml}
+      <div class="top-prod-info">
+        <div class="top-prod-name">${p.name}</div>
+        <div class="top-prod-bar-wrap"><span class="top-prod-bar" style="width:${barW}%"></span></div>
+      </div>
+      <div class="top-prod-qty">×${p.qty}</div>
+    </div>`;
+  }).join('');
 }
 
 // ============================================================
@@ -841,6 +971,13 @@ const suburbCoords = {
   'Malvern': [-37.8583, 145.0250],
   'Camberwell': [-37.8322, 145.0694],
   'Bentleigh': [-37.9181, 145.0356],
+  'Clayton': [-37.9180, 145.1200],
+  'Glen Waverley': [-37.8780, 145.1670],
+  'Brighton': [-37.9050, 144.9970],
+  'Hawthorn': [-37.8220, 145.0360],
+  'Caulfield': [-37.8780, 145.0230],
+  'Carnegie': [-37.8950, 145.0570],
+  'Moorabbin': [-37.9410, 145.0520],
 };
 
 let deliveryMap;

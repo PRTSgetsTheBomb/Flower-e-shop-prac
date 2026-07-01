@@ -941,6 +941,34 @@ async function fetchAllWcOrders(params = {}) {
   return allOrders;
 }
 
+// ---- Product cache (reused across endpoints) ----
+let _cachedProducts = null;
+let _productsCacheTime = 0;
+const PRODUCTS_CACHE_TTL = 10 * 60 * 1000; // 10 min
+
+async function getProductsCache() {
+  if (_cachedProducts && Date.now() - _productsCacheTime < PRODUCTS_CACHE_TTL) {
+    return _cachedProducts;
+  }
+  const wcProducts = await fetchAllWcProducts();
+  const byId = {};
+  const byName = {};
+  for (const p of wcProducts) {
+    const info = {
+      id: p.id,
+      image: p.images?.[0]?.src || null,
+      categories: (p.categories || []).map(c => c.name),
+      primaryCategory: p.categories?.[0]?.name || 'Uncategorized',
+    };
+    byId[p.id] = info;
+    const name = (p.name || '').trim();
+    if (name) byName[name] = info;
+  }
+  _cachedProducts = { byId, byName };
+  _productsCacheTime = Date.now();
+  return _cachedProducts;
+}
+
 /**
  * 辅助函数：从 WooCommerce 拉取所有商品（含分类信息）
  */
@@ -1043,6 +1071,54 @@ app.get('/api/analytics/summary', async (req, res) => {
  * GET /api/analytics/delivery-areas
  * 按配送地区(suburb/city)聚合统计
  */
+
+// 店铺位置 & 郊区坐标（用于计算运费）
+const STORE_LOCATION = { lat: -37.92, lng: 145.09 };
+const SUBURB_COORDS = {
+  'Melbourne CBD': [-37.8136, 144.9631],
+  'Armadale': [-37.8550, 145.0167],
+  'Bentleigh': [-37.9181, 145.0356],
+  'Camberwell': [-37.8322, 145.0694],
+  'Malvern': [-37.8583, 145.0250],
+  'Richmond': [-37.8231, 145.0019],
+  'St Kilda': [-37.8676, 144.9800],
+  'South Yarra': [-37.8383, 144.9917],
+  'Windsor': [-37.8517, 144.9917],
+  'Southbank': [-37.8200, 144.9600],
+  'Port Melbourne': [-37.8267, 144.9400],
+  'Clayton': [-37.9180, 145.1200],
+  'Glen Waverley': [-37.8780, 145.1670],
+  'Brighton': [-37.9050, 144.9970],
+  'Hawthorn': [-37.8220, 145.0360],
+  'Caulfield': [-37.8780, 145.0230],
+  'Carnegie': [-37.8950, 145.0570],
+  'Moorabbin': [-37.9410, 145.0520],
+  'Cranbourne': [-38.1131, 145.2787],
+  'Werribee': [-37.9023, 144.6598],
+  'Frankston': [-38.1434, 145.1220],
+};
+
+function toRad(deg) { return deg * (Math.PI / 180); }
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function calcDeliveryFee(suburb) {
+  const coord = SUBURB_COORDS[suburb];
+  if (!coord) return null;
+  const dist = haversineKm(STORE_LOCATION.lat, STORE_LOCATION.lng, coord[0], coord[1]);
+  if (dist > 20) return null; // 超过20km不配送
+  // 运费 = 5 + dist * 1.2，四舍五入到0.5
+  const fee = Math.round((5 + dist * 1.2) * 2) / 2;
+  return Math.min(fee, 30);
+}
+
 app.get('/api/analytics/delivery-areas', async (req, res) => {
   try {
     const orders = await fetchAllWcOrders();
@@ -1072,6 +1148,7 @@ app.get('/api/analytics/delivery-areas', async (req, res) => {
       .map(a => ({
         ...a,
         totalRevenue: Math.round(a.totalRevenue * 100) / 100,
+        deliveryFee: calcDeliveryFee(a.suburb),
         topProducts: Object.entries(a.productCounts)
           .sort(([, a], [, b]) => b - a)
           .slice(0, 5)
@@ -1094,16 +1171,11 @@ app.get('/api/analytics/products', async (req, res) => {
   try {
     const orders = await fetchAllWcOrders();
 
-    // 获取所有商品信息（含分类）
+    // 获取所有商品信息（含分类和图片）
     let productsMeta = {};
     try {
-      const wcProducts = await fetchAllWcProducts();
-      for (const p of wcProducts) {
-        productsMeta[p.id] = {
-          categories: (p.categories || []).map(c => c.name),
-          primaryCategory: p.categories?.[0]?.name || 'Uncategorized',
-        };
-      }
+      const cache = await getProductsCache();
+      productsMeta = cache.byId;
     } catch {
       // 商品信息获取失败时不影响主流程
     }
@@ -1116,6 +1188,7 @@ app.get('/api/analytics/products', async (req, res) => {
       const method = getDeliveryMethodFromOrder(o);
       if (method === 'delivery') deliveryOrderCount++;
       else pickupOrderCount++;
+      const city = (o.shipping?.city || '').trim();
 
       for (const item of (o.line_items || [])) {
         const id = item.product_id;
@@ -1126,6 +1199,7 @@ app.get('/api/analytics/products', async (req, res) => {
             name,
             category: productsMeta[id]?.primaryCategory || '',
             categories: productsMeta[id]?.categories || [],
+            image: productsMeta[id]?.image || null,
             totalQty: 0,
             totalRevenue: 0,
             deliveryQty: 0,
@@ -1133,6 +1207,7 @@ app.get('/api/analytics/products', async (req, res) => {
             orderCount: 0,
             priceSum: 0,
             priceCount: 0,
+            suburbs: {}, // { suburbName: qty }
           };
         }
         productMap[id].totalQty += item.quantity;
@@ -1140,8 +1215,12 @@ app.get('/api/analytics/products', async (req, res) => {
         productMap[id].orderCount++;
         productMap[id].priceSum += parseFloat(item.price || 0) * item.quantity;
         productMap[id].priceCount += item.quantity;
-        if (method === 'delivery') productMap[id].deliveryQty += item.quantity;
-        else productMap[id].pickupQty += item.quantity;
+        if (method === 'delivery') {
+          productMap[id].deliveryQty += item.quantity;
+          if (city) productMap[id].suburbs[city] = (productMap[id].suburbs[city] || 0) + item.quantity;
+        } else {
+          productMap[id].pickupQty += item.quantity;
+        }
       }
     }
 
@@ -1151,6 +1230,7 @@ app.get('/api/analytics/products', async (req, res) => {
         name: p.name,
         category: p.category,
         categories: p.categories,
+        image: p.image,
         totalQty: p.totalQty,
         totalRevenue: Math.round(p.totalRevenue * 100) / 100,
         deliveryQty: p.deliveryQty,
@@ -1158,6 +1238,10 @@ app.get('/api/analytics/products', async (req, res) => {
         orderCount: p.orderCount,
         deliveryRatio: p.totalQty > 0 ? Math.round((p.deliveryQty / p.totalQty) * 10000) / 100 : 0,
         unitPrice: p.priceCount > 0 ? Math.round((p.priceSum / p.priceCount) * 100) / 100 : 0,
+        topSuburbs: Object.entries(p.suburbs)
+          .map(([suburb, qty]) => ({ suburb, qty }))
+          .sort((a, b) => b.qty - a.qty)
+          .slice(0, 5),
       }))
       .sort((a, b) => b.totalQty - a.totalQty);
 
@@ -1309,8 +1393,17 @@ app.get('/api/analytics/delivery-area/:suburb', async (req, res) => {
         productCounts[name] = (productCounts[name] || 0) + item.quantity;
       }
     }
+
+    // 获取商品图片缓存
+    let prodCache = { byName: {} };
+    try { prodCache = await getProductsCache(); } catch {}
+
     const topProducts = Object.entries(productCounts)
-      .map(([name, qty]) => ({ name, qty }))
+      .map(([name, qty]) => ({
+        name,
+        qty,
+        image: prodCache.byName[name]?.image || null,
+      }))
       .sort((a, b) => b.qty - a.qty);
 
     // 最近订单
