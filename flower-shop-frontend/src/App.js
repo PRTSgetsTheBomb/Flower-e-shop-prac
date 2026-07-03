@@ -30,35 +30,41 @@
 
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+// Context Providers
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
-import CartToast from './components/Pages/CartToast';
-import Header from './components/Homepages/Header';
-import DeliveryBanner from './components/Homepages/DeliveryBanner';
-import Footer from './Footer';
-import HomePage from './HomePage'
-import CollectionPages from './components/Pages/CollectionPages';
-import SearchPage from './components/Pages/SearchPage';
-import PlaceholderPage from './components/Pages/PlaceholderPage';
-import AccountPage from './components/Pages/AccountPage';
-import SignUpPage from './components/Pages/SignUpPage';
-import CartPage from './components/Pages/CartPage';
-import EventPage from './components/Pages/EventPage';
-import ProductDetail from './components/Pages/ProductDetail';
-import ContactPage from './components/Pages/ContactPage';
-import AboutUs from './components/Pages/AboutUs';
-import DeliveryArea from './components/Pages/DeliveryArea';
-import DeliveryPage from './components/Pages/DeliveryPage';
-import BlogPage from './components/Pages/BlogPage';
-import BlogPostPage from './components/Pages/BlogPostPage';
-import RefundPolicy from './components/Pages/RefundPolicy';
-import ShippingPolicy from './components/Pages/ShippingPolicy';
-import LegalNotice from './components/Pages/LegalNotice';
-import PrivacyPolicy from './components/Pages/PrivacyPolicy';
-import TermsOfService from './components/Pages/TermsOfService';
-import CheckoutPage from './components/Pages/CheckoutPage';
-import OrderSummary from './components/Pages/OrderSummary';
+
+// Global Layout Components
+import Header from './pages/Homepages/Header';
+import DeliveryBanner from './pages/Homepages/DeliveryBanner';
+import Footer from './assets/Footer';
 import ScrollToTop from './components/ScrollToTop';
+import CartToast from './pages/Pages/CartToast';
+
+// Page Components
+import HomePage from './assets/HomePage';
+import AboutUs from './pages/Pages/AboutUs';
+import AccountPage from './pages/Pages/AccountPage';
+import BlogPage from './pages/Pages/BlogPage';
+import BlogPostPage from './pages/Pages/BlogPostPage';
+import CartPage from './pages/Pages/CartPage';
+import CheckoutPage from './pages/Pages/CheckoutPage';
+import CollectionPages from './pages/Pages/CollectionPages';
+import ContactPage from './pages/Pages/ContactPage';
+import DeliveryArea from './pages/Pages/DeliveryArea';
+import DeliveryPage from './pages/Pages/DeliveryPage';
+import EventPage from './pages/Pages/EventPage';
+import LegalNotice from './pages/Pages/LegalNotice';
+import OrderSummary from './pages/Pages/OrderSummary';
+import PlaceholderPage from './pages/Pages/PlaceholderPage';
+import PrivacyPolicy from './pages/Pages/PrivacyPolicy';
+import ProductDetail from './pages/Pages/ProductDetail';
+import RefundPolicy from './pages/Pages/RefundPolicy';
+import SearchPage from './pages/Pages/SearchPage';
+import ShippingPolicy from './pages/Pages/ShippingPolicy';
+import SignUpPage from './pages/Pages/SignUpPage';
+import TermsOfService from './pages/Pages/TermsOfService';
 
 function App() {
   return (
