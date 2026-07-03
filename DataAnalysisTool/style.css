@@ -65,6 +65,54 @@ body {
   gap: 16px;
 }
 
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-center .date-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-center .date-filter-row input[type="date"] {
+  padding: 4px 8px;
+  border: 1px solid #3a3a5c;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #2a2a42;
+  color: #e0e0f0;
+  outline: none;
+}
+
+.header-center .date-filter-row input[type="date"]:focus {
+  border-color: #4a6cf7;
+}
+
+.header-center .date-filter-row .filter-sep {
+  color: #667788;
+  font-size: 12px;
+}
+
+.header-center .date-filter-row button {
+  padding: 4px 12px;
+  border: 1px solid #3a3a5c;
+  border-radius: 6px;
+  background: #2a2a42;
+  font-size: 12px;
+  cursor: pointer;
+  color: #8899cc;
+  transition: all 0.2s;
+}
+
+.header-center .date-filter-row button:hover {
+  border-color: #4a6cf7;
+  color: #aabbee;
+  background: #303050;
+}
+
 .last-update {
   font-size: 12px;
   color: #8899aa;
@@ -578,8 +626,15 @@ td.suburb-link:hover {
   }
   .dashboard-header {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     text-align: center;
+  }
+  .header-center {
+    order: 3;
+  }
+  .header-center .date-filter-row {
+    flex-wrap: wrap;
+    justify-content: center;
   }
   .section-divider {
     margin: 20px 0;
@@ -588,4 +643,19 @@ td.suburb-link:hover {
 
 #deliveryMap {
   z-index: 0;
+}
+
+.header-center .date-filter-row.filter-active {
+  border: 1px solid #4a6cf7;
+  border-radius: 8px;
+  padding: 4px 8px;
+  background: rgba(74, 108, 247, 0.12);
+}
+
+.header-center .filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7b93f7;
+  white-space: nowrap;
+  padding: 2px 0;
 }

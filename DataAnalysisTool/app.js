@@ -25,6 +25,47 @@ let chartProducts = null;
 let allMonthlyData = null;
 let currentYear = 'all';
 
+// ---- 常量 ----
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const COLORS = { primary: '#4a6cf7', revenue: '#10b981', pickup: '#f59e0b' };
+
+// ---- 共享插件 ----
+/** 创建收益折线叠加插件 —— 在柱子之后画绿线和点，确保在上层 */
+function createRevenueOverlay() {
+  return {
+    id: 'revenueOverlay',
+    afterDatasetsDraw(chart) {
+      const { ctx, scales, data } = chart;
+      const x = scales.x, y1 = scales.y1;
+      const pts = data.datasets[1].data;
+      if (!y1 || !pts || pts.length === 0) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      let first = true;
+      const dots = [];
+      for (let i = 0; i < pts.length; i++) {
+        if (pts[i] == null) continue;
+        const px = x.getPixelForValue(i);
+        const py = y1.getPixelForValue(pts[i]);
+        if (px == null || py == null) continue;
+        dots.push([px, py]);
+        if (first) { ctx.moveTo(px, py); first = false; }
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      for (const [dx, dy] of dots) {
+        ctx.beginPath(); ctx.arc(dx, dy, 5.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.beginPath(); ctx.arc(dx, dy, 3.5, 0, Math.PI * 2); ctx.fillStyle = '#10b981'; ctx.fill();
+      }
+      ctx.restore();
+    },
+  };
+}
+
 // ============================================================
 //  初始化
 // ============================================================
@@ -98,16 +139,39 @@ function showError(msg) {
 //  1. Overview — 总览数据
 // ============================================================
 
-async function loadSummary() {
-  const res = await fetch(`${API_BASE}/api/analytics/summary`);
+async function loadSummary(startDate, endDate) {
+  const hasFilter = !!(startDate || endDate);
+
+  // 仅在无筛选时清除日期输入框（首次加载 / 手动 Refresh）
+  if (!hasFilter) {
+    document.getElementById('filterStartDate').value = '';
+    document.getElementById('filterEndDate').value = '';
+    const filterRow = document.querySelector('.date-filter-row');
+    if (filterRow) filterRow.classList.remove('filter-active');
+    toggleFilterLabel('');
+  }
+
+  // 构建带日期参数的 URL
+  let url = `${API_BASE}/api/analytics/summary`;
+  const params = new URLSearchParams();
+  if (startDate) params.set('startDate', startDate);
+  if (endDate) params.set('endDate', endDate);
+  const qs = params.toString();
+  if (qs) url += '?' + qs;
+
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
 
   // KPI 卡片
   document.getElementById('kpi-totalOrders').textContent = data.totalOrders;
   document.getElementById('kpi-totalRevenue').textContent = `$${data.totalRevenue.toFixed(2)}`;
+  const avgOrder = data.totalOrders > 0 ? Math.round(data.totalRevenue / data.totalOrders * 100) / 100 : 0;
+  document.getElementById('kpi-avgOrderValue').textContent = `$${avgOrder.toFixed(2)}`;
   document.getElementById('kpi-deliveryCount').textContent = `${data.deliveryCount} (${data.deliveryRatio}%)`;
   document.getElementById('kpi-pickupCount').textContent = `${data.pickupCount} (${data.pickupRatio}%)`;
+  document.getElementById('kpi-totalDeliveryFee').textContent = `$${data.totalDeliveryFee?.toFixed(2) || '0.00'}`;
+  document.getElementById('kpi-avgDeliveryFee').textContent = `$${data.avgDeliveryFee?.toFixed(2) || '0.00'}`;
 
   // Delivery vs Pickup 饼图
   renderMethodChart(data.deliveryCount, data.pickupCount);
@@ -115,12 +179,177 @@ async function loadSummary() {
   // 订单状态分布图
   renderStatusChart(data.statusCounts);
 
-  // 月度趋势图
-  allMonthlyData = data.monthly;
-  buildYearTabs(data.monthly);
-  renderMonthlyChart(data.monthly, currentYear);
-  updateYearSummary(data.monthly, currentYear);
+  // 月度趋势图（仅在无日期筛选时更新）
+  if (!hasFilter) {
+    allMonthlyData = data.monthly;
+    window.allMonthlyData = data.monthly;
+    buildYearTabs(data.monthly);
+    renderMonthlyChart(data.monthly, currentYear);
+    updateYearSummary(data.monthly, currentYear);
+    document.getElementById('yearSummary').style.display = currentYear === 'all' ? 'none' : '';
+  }
 }
+
+// ---- 日期范围筛选 ----
+function applyDateFilter() {
+  const startVal = document.getElementById('filterStartDate').value;
+  const endVal = document.getElementById('filterEndDate').value;
+  const filterRow = document.querySelector('.date-filter-row');
+
+  // 同步 min/max 约束
+  document.getElementById('filterEndDate').min = startVal || '';
+  document.getElementById('filterStartDate').max = endVal || '';
+
+  // 无筛选 → 恢复全部数据
+  if (!startVal && !endVal) {
+    if (filterRow) { filterRow.classList.remove('filter-active'); toggleFilterLabel(''); }
+    restoreMonthlyView();
+    return;
+  }
+
+  if (filterRow) { filterRow.classList.add('filter-active'); toggleFilterLabel(`Filtered ${startVal} ~ ${endVal}`); }
+
+  // 1) 刷新 KPI 卡片和饼图（summary 接口带日期参数）
+  loadSummary(startVal, endVal);
+
+  // 2) 刷新 Delivery Areas 和 Products 区块
+  loadDeliveryAreas(startVal, endVal);
+  loadProducts(startVal, endVal);
+
+  // 3) 请求每日数据渲染日趋势图
+  const params = new URLSearchParams();
+  if (startVal) params.set('startDate', startVal);
+  if (endVal) params.set('endDate', endVal);
+
+  fetch(`${API_BASE}/api/analytics/daily?${params}`)
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(data => {
+      renderDailyChart(data.daily);
+      document.getElementById('yearSummary').style.display = 'none';
+    })
+    .catch(() => restoreMonthlyView());
+}
+
+function restoreMonthlyView() {
+  document.getElementById('filterStartDate').value = '';
+  document.getElementById('filterEndDate').value = '';
+  const filterRow = document.querySelector('.date-filter-row');
+  if (filterRow) { filterRow.classList.remove('filter-active'); toggleFilterLabel(''); }
+
+  // 恢复全部数据：KPI、Delivery Areas、Products
+  loadSummary();
+  loadDeliveryAreas();
+  loadProducts();
+}
+
+function toggleFilterLabel(text) {
+  const label = document.querySelector('.filter-label');
+  if (!label) return;
+  label.style.display = text ? '' : 'none';
+  if (text) label.textContent = text;
+}
+
+function renderDailyChart(daily) {
+  const ctx = document.getElementById('chartMonthly').getContext('2d');
+  if (chartMonthly) chartMonthly.destroy();
+  if (!daily || daily.length === 0) return;
+
+  const step = daily.length > 20 ? 2 : 1;
+  const fullDates = daily.map(d => d.date); // YYYY-MM-DD
+  const labels = daily.map((d, i) => {
+    const [y, m, day] = d.date.split('-');
+    const wd = WEEKDAYS[new Date(d.date).getDay()];
+    if (daily.length > 14 && i % step !== 0) return `${m}/${day}`;
+    return [`${m}/${day}`, wd];
+  });
+
+  const revenueOverlay = createRevenueOverlay();
+
+  chartMonthly = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Orders', data: daily.map(d => d.orderCount), backgroundColor: '#4a6cf7', borderRadius: 4 },
+        {
+          label: 'Revenue ($)', data: daily.map(d => d.revenue), type: 'line', yAxisID: 'y1',
+          borderColor: 'transparent', backgroundColor: 'transparent', pointBackgroundColor: 'transparent', pointBorderColor: 'transparent'
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom', labels: {
+            padding: 16, usePointStyle: true,
+            generateLabels(chart) {
+              return [
+                { text: 'Orders', fillStyle: '#4a6cf7', strokeStyle: '#4a6cf7', lineWidth: 0, hidden: false, index: 0, datasetIndex: 0, pointStyle: 'rect' },
+                { text: 'Revenue ($)', fillStyle: '#10b981', strokeStyle: '#10b981', lineWidth: 3, hidden: false, index: 0, datasetIndex: 1, pointStyle: 'circle' },
+              ];
+            }
+          },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => {
+              if (!items.length) return '';
+              const idx = items[0].dataIndex;
+              if (fullDates[idx]) {
+                const [y, m, d2] = fullDates[idx].split('-');
+                const wd = WEEKDAYS[new Date(fullDates[idx]).getDay()];
+                return `${m}/${d2} ${wd}`;
+              }
+              return '';
+            },
+            label: (ctx) => ctx.datasetIndex === 1 ? `Revenue: $${(ctx.raw || 0).toFixed(2)}` : `Orders: ${ctx.raw}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { maxRotation: 0, minRotation: 0, maxTicksLimit: 21 },
+        },
+        y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Orders' } },
+        y1: { beginAtZero: true, position: 'right', grid: { display: false }, title: { display: true, text: 'Revenue ($)' } },
+      },
+    },
+    plugins: [revenueOverlay],
+  });
+}
+
+// 绑定事件
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('filterStartDate').addEventListener('change', function () {
+    document.getElementById('filterEndDate').min = this.value;
+    applyDateFilter();
+  });
+  document.getElementById('filterEndDate').addEventListener('change', function () {
+    document.getElementById('filterStartDate').max = this.value;
+    applyDateFilter();
+  });
+  document.getElementById('btnThisWeek').addEventListener('click', () => {
+    const now = new Date();
+    const mon = new Date(now);
+    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7)); // 本周一
+    const sun = new Date(mon);
+    sun.setDate(sun.getDate() + 6); // 本周日
+    document.getElementById('filterStartDate').value = mon.toISOString().slice(0, 10);
+    document.getElementById('filterEndDate').value = sun.toISOString().slice(0, 10);
+    document.getElementById('filterStartDate').max = sun.toISOString().slice(0, 10);
+    document.getElementById('filterEndDate').min = mon.toISOString().slice(0, 10);
+    applyDateFilter();
+  });
+  document.getElementById('btnThisMonth').addEventListener('click', () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    document.getElementById('filterStartDate').value = first.toISOString().slice(0, 10);
+    document.getElementById('filterEndDate').value = last.toISOString().slice(0, 10);
+    applyDateFilter();
+  });
+})
 
 // ---- 年份切换 ----
 let yearTabHandler = null;
@@ -154,6 +383,14 @@ function buildYearTabs(monthly) {
     container.querySelectorAll('.year-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentYear = btn.dataset.year;
+
+    // 清除日期筛选并恢复全部数据
+    document.getElementById('filterStartDate').value = '';
+    document.getElementById('filterEndDate').value = '';
+    const filterRow = document.querySelector('.date-filter-row');
+    if (filterRow) { filterRow.classList.remove('filter-active'); toggleFilterLabel(''); }
+
+    document.getElementById('yearSummary').style.display = currentYear === 'all' ? 'none' : '';
     renderMonthlyChart(allMonthlyData, currentYear);
     updateYearSummary(allMonthlyData, currentYear);
   };
@@ -182,10 +419,9 @@ function updateYearSummary(monthly, yearFilter) {
   const avgMonthly = Math.round(totalOrders / yearData.length);
   const maxCount = Math.max(...yearData.map(m => m.orderCount));
   const busiestMonths = yearData.filter(m => m.orderCount === maxCount);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const busiestLabel = busiestMonths.map(m => {
     const [y, mo] = m.month.split('-');
-    return `${months[parseInt(mo) - 1]} ${y}`;
+    return `${MONTHS[parseInt(mo) - 1]} ${y}`;
   }).join(', ');
   const tieHint = busiestMonths.length > 1 ? ` (${busiestMonths.length} tied)` : '';
 
@@ -227,9 +463,11 @@ function renderMonthlyChart(monthly, yearFilter = 'all') {
 
   const labels = filtered.map(m => {
     const [y, mo] = m.month.split('-');
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return yearFilter === 'all' ? `${months[parseInt(mo) - 1]} ${y}` : months[parseInt(mo) - 1];
+    return yearFilter === 'all' ? `${MONTHS[parseInt(mo) - 1]} ${y}` : MONTHS[parseInt(mo) - 1];
   });
+
+  // 自定义插件：在柱子之后单独画收益线（确保在上层）
+  const revenueOverlay = createRevenueOverlay();
 
   chartMonthly = new Chart(ctx, {
     type: 'bar',
@@ -241,20 +479,16 @@ function renderMonthlyChart(monthly, yearFilter = 'all') {
           data: filtered.map(m => m.orderCount),
           backgroundColor: '#4a6cf7',
           borderRadius: 4,
-          order: 2,
         },
         {
           label: 'Revenue ($)',
           data: filtered.map(m => m.revenue),
           type: 'line',
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16,185,129,0.1)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-          pointBackgroundColor: '#10b981',
           yAxisID: 'y1',
-          order: 1,
+          borderColor: 'transparent',
+          backgroundColor: 'transparent',
+          pointBackgroundColor: 'transparent',
+          pointBorderColor: 'transparent',
         },
       ],
     },
@@ -264,33 +498,27 @@ function renderMonthlyChart(monthly, yearFilter = 'all') {
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { padding: 16, usePointStyle: true },
+          labels: {
+            padding: 16, usePointStyle: true, generateLabels(chart) {
+              return [
+                { text: 'Orders', fillStyle: '#4a6cf7', strokeStyle: '#4a6cf7', lineWidth: 0, hidden: false, index: 0, datasetIndex: 0, pointStyle: 'rect' },
+                { text: 'Revenue ($)', fillStyle: '#10b981', strokeStyle: '#10b981', lineWidth: 3, hidden: false, index: 0, datasetIndex: 1, pointStyle: 'circle' },
+              ];
+            }
+          },
         },
         tooltip: {
           callbacks: {
-            label: (ctx) => {
-              if (ctx.dataset.label === 'Revenue ($)') {
-                return `Revenue: $${ctx.parsed.y.toFixed(2)}`;
-              }
-              return `${ctx.dataset.label}: ${ctx.parsed.y}`;
-            },
+            label: (ctx) => ctx.datasetIndex === 1 ? `Revenue: $${(ctx.raw || 0).toFixed(2)}` : `Orders: ${ctx.raw}`,
           },
         },
       },
       scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { stepSize: 1 },
-          title: { display: true, text: 'Orders' },
-        },
-        y1: {
-          beginAtZero: true,
-          position: 'right',
-          grid: { display: false },
-          title: { display: true, text: 'Revenue ($)' },
-        },
+        y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Orders' } },
+        y1: { beginAtZero: true, position: 'right', grid: { display: false }, title: { display: true, text: 'Revenue ($)' } },
       },
     },
+    plugins: [revenueOverlay],
   });
 }
 
@@ -377,8 +605,15 @@ function renderStatusChart(statusCounts) {
 //  2. Delivery Areas — 配送地区分析
 // ============================================================
 
-async function loadDeliveryAreas() {
-  const res = await fetch(`${API_BASE}/api/analytics/delivery-areas`);
+async function loadDeliveryAreas(startDate, endDate) {
+  let url = `${API_BASE}/api/analytics/delivery-areas`;
+  const params = new URLSearchParams();
+  if (startDate) params.set('startDate', startDate);
+  if (endDate) params.set('endDate', endDate);
+  const qs = params.toString();
+  if (qs) url += '?' + qs;
+
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const areas = data.areas || [];
@@ -460,8 +695,15 @@ function renderAreasChart(areas) {
 //  3. Products — 商品分析
 // ============================================================
 
-async function loadProducts() {
-  const res = await fetch(`${API_BASE}/api/analytics/products`);
+async function loadProducts(startDate, endDate) {
+  let url = `${API_BASE}/api/analytics/products`;
+  const params = new URLSearchParams();
+  if (startDate) params.set('startDate', startDate);
+  if (endDate) params.set('endDate', endDate);
+  const qs = params.toString();
+  if (qs) url += '?' + qs;
+
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const products = data.products || [];
@@ -799,71 +1041,80 @@ function openAreaDetail(suburb) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 绑定返回按钮和地区点击
-document.addEventListener('DOMContentLoaded', () => {
-  // 事件委托：点击地区链接打开详情
-  document.addEventListener('click', (e) => {
-    const link = e.target.closest('.suburb-link');
-    if (link) {
-      const suburb = link.dataset.suburb;
-      if (suburb) openAreaDetail(suburb);
-    }
-  });
-});
-
 async function loadAreaDetail(suburb) {
-  const res = await fetch(`${API_BASE}/api/analytics/delivery-area/${encodeURIComponent(suburb)}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/analytics/delivery-area/${encodeURIComponent(suburb)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
 
-  // KPI
-  document.getElementById('ad-orders').textContent = data.orderCount;
-  document.getElementById('ad-revenue').textContent = `$${data.totalRevenue.toFixed(2)}`;
-  document.getElementById('ad-customers').textContent = data.uniqueCustomers;
-
-  // Top Product(s) — 处理并列
-  const topProdImg = document.getElementById('ad-topProductImg');
-  const topProdEl = document.getElementById('ad-topProduct');
-  if (data.topProducts && data.topProducts.length > 0) {
-    const maxQty = data.topProducts[0].qty;
-    const topList = data.topProducts.filter(p => p.qty === maxQty);
-    const names = topList.map(p => p.name);
-    topProdEl.textContent = names.length <= 2
-      ? names.join(' & ')
-      : names.slice(0, 2).join(', ') + ` & ${names.length - 2} more`;
-    // 显示第一个商品的图片
-    if (topList[0]?.image) {
-      topProdImg.src = topList[0].image;
-      topProdImg.style.display = 'block';
+    // KPI
+    document.getElementById('ad-orders').textContent = data.orderCount;
+    document.getElementById('ad-revenue').textContent = `$${data.totalRevenue.toFixed(2)}`;
+    document.getElementById('ad-customers').textContent = data.uniqueCustomers;
+    const avgVal = data.orderCount > 0 ? Math.round(data.totalRevenue / data.orderCount * 100) / 100 : 0;
+    document.getElementById('ad-avgOrderValue').textContent = `$${avgVal.toFixed(2)}`;
+    const topProdEl = document.getElementById('ad-topProduct');
+    const topProdImg = document.getElementById('ad-topProductImg');
+    if (data.topProducts && data.topProducts.length > 0) {
+      const maxQty = data.topProducts[0].qty;
+      const topList = data.topProducts.filter(p => p.qty === maxQty);
+      const names = topList.map(p => p.name);
+      topProdEl.textContent = names.length <= 2
+        ? names.join(' & ')
+        : names.slice(0, 2).join(', ') + ` & ${names.length - 2} more`;
+      // 显示第一个商品的图片
+      if (topList[0]?.image) {
+        topProdImg.src = topList[0].image;
+        topProdImg.style.display = 'block';
+      } else {
+        topProdImg.style.display = 'none';
+      }
     } else {
+      topProdEl.textContent = '—';
       topProdImg.style.display = 'none';
     }
-  } else {
-    topProdEl.textContent = '—';
-    topProdImg.style.display = 'none';
-  }
-  document.getElementById('area-detail-hint').textContent = `${data.orderCount} orders, ${data.uniqueCustomers} unique customers`;
+    document.getElementById('area-detail-hint').textContent = `${data.orderCount} orders, ${data.uniqueCustomers} unique customers`;
 
-  // Busiest Month
-  if (data.monthlyTrend && data.monthlyTrend.length > 0) {
-    const maxCount = Math.max(...data.monthlyTrend.map(m => m.orderCount));
-    const busiestMonths = data.monthlyTrend.filter(m => m.orderCount === maxCount);
-    const ms = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const label = busiestMonths.map(m => {
-      const [y, mo] = m.month.split('-');
-      return `${ms[parseInt(mo) - 1]} ${y}`;
-    }).join(', ');
-    const tieHint = busiestMonths.length > 1 ? ` (${busiestMonths.length} tied)` : '';
-    document.getElementById('ad-busiestMonth').textContent = `${label} (${maxCount})${tieHint}`;
-  } else {
+    // Busiest Month
+    if (data.monthlyTrend && data.monthlyTrend.length > 0) {
+      const maxCount = Math.max(...data.monthlyTrend.map(m => m.orderCount));
+      const busiestMonths = data.monthlyTrend.filter(m => m.orderCount === maxCount);
+      const label = busiestMonths.map(m => {
+        const [y, mo] = m.month.split('-');
+        return `${MONTHS[parseInt(mo) - 1]} ${y}`;
+      }).join(', ');
+      const tieHint = busiestMonths.length > 1 ? ` (${busiestMonths.length} tied)` : '';
+      document.getElementById('ad-busiestMonth').textContent = `${label} (${maxCount})${tieHint}`;
+    } else {
+      document.getElementById('ad-busiestMonth').textContent = '—';
+    }
+
+    // Delivery Fee
+    const fee = data.deliveryFee;
+    if (fee !== null && fee !== undefined) {
+      document.getElementById('ad-areaDeliveryFee').textContent = `$${fee.toFixed(2)}`;
+      document.getElementById('ad-totalDeliveryFee').textContent = `$${(fee * data.orderCount).toFixed(2)}`;
+    } else {
+      document.getElementById('ad-areaDeliveryFee').textContent = '—';
+      document.getElementById('ad-totalDeliveryFee').textContent = '—';
+    }
+
+    // Monthly trend chart
+    renderAreaTrend(data.monthlyTrend);
+
+    // Top products
+    renderAreaTopProducts(data.topProducts);
+  } catch (err) {
+    console.error('[Area Detail] Load error:', err);
+    document.getElementById('area-detail-hint').textContent = 'Failed to load area details.';
+    document.getElementById('ad-orders').textContent = '—';
+    document.getElementById('ad-revenue').textContent = '—';
+    document.getElementById('ad-customers').textContent = '—';
     document.getElementById('ad-busiestMonth').textContent = '—';
+    document.getElementById('ad-topProduct').textContent = '—';
+    document.getElementById('ad-areaDeliveryFee').textContent = '—';
+    document.getElementById('ad-totalDeliveryFee').textContent = '—';
   }
-
-  // Monthly trend chart
-  renderAreaTrend(data.monthlyTrend);
-
-  // Top products
-  renderAreaTopProducts(data.topProducts);
 }
 
 function renderAreaTrend(monthlyTrend) {
@@ -875,34 +1126,21 @@ function renderAreaTrend(monthlyTrend) {
   const labels = monthlyTrend.map(m => m.month);
   const monthsAbbr = labels.map(m => {
     const [y, mo] = m.split('-');
-    const ms = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${ms[parseInt(mo) - 1]} ${y}`;
+    return `${MONTHS[parseInt(mo) - 1]} ${y}`;
   });
+
+  // 自定义插件：收益线画在柱子之上
+  const revenueOverlay = createRevenueOverlay();
 
   chartAreaDetail = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: monthsAbbr,
       datasets: [
+        { label: 'Orders', data: monthlyTrend.map(m => m.orderCount), backgroundColor: '#4a6cf7', borderRadius: 4 },
         {
-          label: 'Orders',
-          data: monthlyTrend.map(m => m.orderCount),
-          backgroundColor: '#4a6cf7',
-          borderRadius: 4,
-          order: 2,
-        },
-        {
-          label: 'Revenue ($)',
-          data: monthlyTrend.map(m => m.revenue),
-          type: 'line',
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16,185,129,0.1)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-          pointBackgroundColor: '#10b981',
-          yAxisID: 'y1',
-          order: 1,
+          label: 'Revenue ($)', data: monthlyTrend.map(m => m.revenue), type: 'line', yAxisID: 'y1',
+          borderColor: 'transparent', backgroundColor: 'transparent', pointBackgroundColor: 'transparent', pointBorderColor: 'transparent'
         },
       ],
     },
@@ -910,12 +1148,20 @@ function renderAreaTrend(monthlyTrend) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true } },
+        legend: {
+          position: 'bottom', labels: {
+            padding: 12, usePointStyle: true,
+            generateLabels(chart) {
+              return [
+                { text: 'Orders', fillStyle: '#4a6cf7', strokeStyle: '#4a6cf7', lineWidth: 0, hidden: false, index: 0, datasetIndex: 0, pointStyle: 'rect' },
+                { text: 'Revenue ($)', fillStyle: '#10b981', strokeStyle: '#10b981', lineWidth: 3, hidden: false, index: 0, datasetIndex: 1, pointStyle: 'circle' },
+              ];
+            }
+          },
+        },
         tooltip: {
           callbacks: {
-            label: (ctx) => ctx.dataset.label === 'Revenue ($)'
-              ? `Revenue: $${ctx.parsed.y.toFixed(2)}`
-              : `${ctx.dataset.label}: ${ctx.parsed.y}`,
+            label: (ctx) => ctx.datasetIndex === 1 ? `Revenue: $${(ctx.raw || 0).toFixed(2)}` : `Orders: ${ctx.raw}`,
           },
         },
       },
@@ -924,6 +1170,7 @@ function renderAreaTrend(monthlyTrend) {
         y1: { beginAtZero: true, position: 'right', grid: { display: false }, title: { display: true, text: 'Revenue ($)' } },
       },
     },
+    plugins: [revenueOverlay],
   });
 }
 
@@ -978,6 +1225,9 @@ const suburbCoords = {
   'Caulfield': [-37.8780, 145.0230],
   'Carnegie': [-37.8950, 145.0570],
   'Moorabbin': [-37.9410, 145.0520],
+  'Cranbourne': [-38.1131, 145.2787],
+  'Werribee': [-37.9023, 144.6598],
+  'Frankston': [-38.1434, 145.1220],
 };
 
 let deliveryMap;
@@ -1040,8 +1290,9 @@ function renderDeliveryMap(areas) {
     L.marker(coord, { icon, interactive: false, keyboard: false }).addTo(deliveryMap);
 
     // 鼠标悬停显示详情
+    const feeText = area.deliveryFee !== null ? `$${area.deliveryFee.toFixed(2)}` : 'N/A';
     circle.bindTooltip(
-      `<strong>${area.suburb}</strong><br>Orders: ${area.orderCount}<br>Revenue: $${area.totalRevenue}`,
+      `<strong>${area.suburb}</strong><br>Orders: ${area.orderCount}<br>Revenue: $${area.totalRevenue}<br>Delivery Fee: ${feeText}`,
       { direction: 'top', offset: [0, -radius - 10] }
     );
 

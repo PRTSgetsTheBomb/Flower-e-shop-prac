@@ -1000,21 +1000,42 @@ function getDeliveryMethodFromOrder(order) {
 }
 
 /**
- * GET /api/analytics/summary
+ * GET /api/analytics/summary?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
  * 获取总体统计数据：订单总数、总营收、delivery/pickup 比例
+ * 支持可选日期范围过滤
  */
 app.get('/api/analytics/summary', async (req, res) => {
   try {
-    const orders = await fetchAllWcOrders();
+    const { startDate, endDate } = req.query;
+    let orders = await fetchAllWcOrders();
+
+    // 日期范围过滤（基于 Delivery Date meta 或 date_created）
+    if (startDate || endDate) {
+      orders = orders.filter(o => {
+        const deliveryDateMeta = o.meta_data?.find(m => m.key === 'Delivery Date');
+        const dateStr = deliveryDateMeta?.value || o.date_created;
+        if (!dateStr) return true;
+        const key = dateStr.split('T')[0];
+        if (startDate && key < startDate) return false;
+        if (endDate && key > endDate) return false;
+        return true;
+      });
+    }
 
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
 
     let deliveryCount = 0;
     let pickupCount = 0;
+    let totalDeliveryFee = 0;
     for (const o of orders) {
       const method = getDeliveryMethodFromOrder(o);
-      if (method === 'delivery') deliveryCount++;
+      if (method === 'delivery') {
+        deliveryCount++;
+        const city = (o.shipping?.city || '').trim();
+        const fee = calcDeliveryFee(city);
+        if (fee !== null) totalDeliveryFee += fee;
+      }
       else pickupCount++;
     }
 
@@ -1058,6 +1079,8 @@ app.get('/api/analytics/summary', async (req, res) => {
       pickupCount,
       deliveryRatio: totalOrders > 0 ? Math.round((deliveryCount / totalOrders) * 10000) / 100 : 0,
       pickupRatio: totalOrders > 0 ? Math.round((pickupCount / totalOrders) * 10000) / 100 : 0,
+      totalDeliveryFee: Math.round(totalDeliveryFee * 100) / 100,
+      avgDeliveryFee: deliveryCount > 0 ? Math.round((totalDeliveryFee / deliveryCount) * 100) / 100 : 0,
       statusCounts,
       monthly,
     });
@@ -1066,6 +1089,60 @@ app.get('/api/analytics/summary', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * GET /api/analytics/daily?startDate=2026-07-01&endDate=2026-07-02
+ * 按天聚合订单数据
+ */
+
+app.get('/api/analytics/daily', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const orders = await fetchAllWcOrders();
+
+    // 按天聚合
+    const dailyMap = {};
+    for (const o of orders) {
+      const deliveryDateMeta = o.meta_data?.find(m => m.key === 'Delivery Date');
+      const dateStr = deliveryDateMeta?.value || o.date_created;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) continue;
+      const key = d.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      //日期范围过滤
+      if (startDate && key < startDate) continue;
+      if (endDate && key > endDate) continue;
+
+      if (!dailyMap[key]) {
+        dailyMap[key] = { date: key, orderCount: 0, revenue: 0 };
+      }
+      dailyMap[key].orderCount++;
+      dailyMap[key].revenue += parseFloat(o.total || 0);
+    }
+
+    const daily = Object.values(dailyMap)
+      .map(d => ({ ...d, revenue: Math.round(d.revenue * 100) / 100 }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // 补全无订单的日期
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const filled = [];
+      for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+        const key = dt.toISOString().split('T')[0];
+        const existing = daily.find(d => d.date === key);
+        filled.push(existing || { date: key, orderCount: 0, revenue: 0 });
+      }
+      return res.json({ daily: filled });
+    }
+    res.json({ daily });
+  }
+  catch (err) {
+    console.error('[Analytics] Daily error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+})
 
 /**
  * GET /api/analytics/delivery-areas
@@ -1105,7 +1182,7 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
   const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -1121,7 +1198,21 @@ function calcDeliveryFee(suburb) {
 
 app.get('/api/analytics/delivery-areas', async (req, res) => {
   try {
-    const orders = await fetchAllWcOrders();
+    const { startDate, endDate } = req.query;
+    let orders = await fetchAllWcOrders();
+
+    // 日期范围过滤
+    if (startDate || endDate) {
+      orders = orders.filter(o => {
+        const deliveryDateMeta = o.meta_data?.find(m => m.key === 'Delivery Date');
+        const dateStr = deliveryDateMeta?.value || o.date_created;
+        if (!dateStr) return true;
+        const key = dateStr.split('T')[0];
+        if (startDate && key < startDate) return false;
+        if (endDate && key > endDate) return false;
+        return true;
+      });
+    }
 
     // 只统计配送订单
     const deliveryOrders = orders.filter(o => getDeliveryMethodFromOrder(o) === 'delivery');
@@ -1169,7 +1260,21 @@ app.get('/api/analytics/delivery-areas', async (req, res) => {
  */
 app.get('/api/analytics/products', async (req, res) => {
   try {
-    const orders = await fetchAllWcOrders();
+    const { startDate, endDate } = req.query;
+    let orders = await fetchAllWcOrders();
+
+    // 日期范围过滤
+    if (startDate || endDate) {
+      orders = orders.filter(o => {
+        const deliveryDateMeta = o.meta_data?.find(m => m.key === 'Delivery Date');
+        const dateStr = deliveryDateMeta?.value || o.date_created;
+        if (!dateStr) return true;
+        const key = dateStr.split('T')[0];
+        if (startDate && key < startDate) return false;
+        if (endDate && key > endDate) return false;
+        return true;
+      });
+    }
 
     // 获取所有商品信息（含分类和图片）
     let productsMeta = {};
@@ -1396,7 +1501,7 @@ app.get('/api/analytics/delivery-area/:suburb', async (req, res) => {
 
     // 获取商品图片缓存
     let prodCache = { byName: {} };
-    try { prodCache = await getProductsCache(); } catch {}
+    try { prodCache = await getProductsCache(); } catch { }
 
     const topProducts = Object.entries(productCounts)
       .map(([name, qty]) => ({
@@ -1428,6 +1533,7 @@ app.get('/api/analytics/delivery-area/:suburb', async (req, res) => {
       monthlyTrend,
       topProducts,
       recentOrders,
+      deliveryFee: calcDeliveryFee(suburb),
     });
   } catch (err) {
     console.error('[Analytics] Delivery area detail error:', err.message);

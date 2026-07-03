@@ -17,6 +17,16 @@
       <h1>Pisces Flower Analytics</h1>
       <span class="header-subtitle">Sales Dashboard</span>
     </div>
+    <div class="header-center">
+      <div class="date-filter-row">
+        <span class="filter-label"></span>
+        <input type="date" id="filterStartDate">
+        <span class="filter-sep">—</span>
+        <input type="date" id="filterEndDate">
+        <button id="btnThisWeek">This Week</button>
+        <button id="btnThisMonth">This Month</button>
+      </div>
+    </div>
     <div class="header-right">
       <span class="last-update" id="lastUpdate"></span>
       <button class="btn-refresh" id="btnRefresh" onclick="loadAll()">Refresh</button>
@@ -28,7 +38,7 @@
       <!-- ============ Overview ============ -->
       <section id="tab-overview">
         <!-- KPI Cards -->
-        <div class="kpi-row">
+        <div class="kpi-row" style="grid-template-columns:repeat(7,1fr);">
           <div class="kpi-card">
             <div class="kpi-label">Total Orders</div>
             <div class="kpi-value" id="kpi-totalOrders">—</div>
@@ -38,12 +48,24 @@
             <div class="kpi-value" id="kpi-totalRevenue">—</div>
           </div>
           <div class="kpi-card">
+            <div class="kpi-label">Avg Order Value</div>
+            <div class="kpi-value" id="kpi-avgOrderValue">—</div>
+          </div>
+          <div class="kpi-card">
             <div class="kpi-label">Delivery</div>
             <div class="kpi-value" id="kpi-deliveryCount">—</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Pickup</div>
             <div class="kpi-value" id="kpi-pickupCount">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Delivery Fee</div>
+            <div class="kpi-value" id="kpi-totalDeliveryFee">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Avg Delivery Fee</div>
+            <div class="kpi-value" id="kpi-avgDeliveryFee">—</div>
           </div>
         </div>
 
@@ -68,7 +90,7 @@
           <div class="chart-card full-width">
             <div
               style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f2f5;">
-              <h3 style="margin:0;padding:0;border:none;">Monthly Trend</h3>
+              <h3 style="margin:0;padding:0;border:none;">Trend</h3>
               <div class="year-tabs" id="yearTabs"></div>
             </div>
             <div class="chart-wrapper" style="height:280px;">
@@ -183,29 +205,42 @@
       </div>
 
       <!-- KPI -->
-      <div class="kpi-row" id="area-detail-kpis" style="grid-template-columns:repeat(5,1fr);">
-        <div class="kpi-card">
-          <div class="kpi-label">Orders</div>
-          <div class="kpi-value" id="ad-orders">—</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Revenue</div>
-          <div class="kpi-value" id="ad-revenue">—</div>
-        </div>
+      <div class="kpi-row" id="area-detail-kpis" style="grid-template-columns:repeat(4,1fr);">
         <div class="kpi-card">
           <div class="kpi-label">Customers</div>
           <div class="kpi-value" id="ad-customers">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Revenue (Delivery Fee excluded)</div>
+          <div class="kpi-value" id="ad-revenue">—</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Busiest Month</div>
           <div class="kpi-value" id="ad-busiestMonth" style="font-size:20px;">—</div>
         </div>
         <div class="kpi-card">
+          <div class="kpi-label">Delivery Fee to this Area</div>
+          <div class="kpi-value" id="ad-areaDeliveryFee">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Orders</div>
+          <div class="kpi-value" id="ad-orders">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg Order Value</div>
+          <div class="kpi-value" id="ad-avgOrderValue">—</div>
+        </div>
+        <div class="kpi-card">
           <div class="kpi-label">Top Product</div>
           <div style="display:flex;align-items:center;gap:10px;">
-            <img id="ad-topProductImg" style="width:36px;height:36px;object-fit:cover;border-radius:6px;display:none;" alt="" onerror="this.style.display='none'">
+            <img id="ad-topProductImg" style="width:36px;height:36px;object-fit:cover;border-radius:6px;display:none;"
+              alt="" onerror="this.style.display='none'">
             <div class="kpi-value" id="ad-topProduct" style="font-size:20px;">—</div>
           </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total Delivery Fee</div>
+          <div class="kpi-value" id="ad-totalDeliveryFee">—</div>
         </div>
       </div>
 
