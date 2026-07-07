@@ -14,52 +14,15 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
-const { sendOrderConfirmation, sendOrderShipped, sendOrderReadyForPickup, sendOrderCompleted } = require('./mail');
+const wcApi = require('./lib/woocommerce');
+const { sendOrderConfirmation, sendOrderShipped, sendOrderReadyForPickup, sendOrderCompleted } = require('./services/mail');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ---------- WooCommerce 客户端（管理员权限） ----------
-const wcApi = new WooCommerceRestApi({
-  url: process.env.WC_URL,
-  consumerKey: process.env.WC_KEY,
-  consumerSecret: process.env.WC_SECRET,
-  version: 'wc/v3',
-  queryStringAuth: true,
-});
-
-// ============================================================
-//  Stripe PaymentIntent
-// ============================================================
-
-/**
- * POST /create-payment-intent
- * Body: { amount: number }  — 金额（美元，如 92.95）
- * Returns: { clientSecret: string }
- */
-app.post('/create-payment-intent', async (req, res) => {
-  try {
-    const { amount } = req.body;
-
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'Invalid amount' });
-    }
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Stripe 以"分"为单位
-      currency: 'aud',
-      automatic_payment_methods: { enabled: true },
-    });
-
-    res.json({ clientSecret: paymentIntent.client_secret });
-  } catch (err) {
-    console.error('[Stripe] Error creating PaymentIntent:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+// ---------- 挂载路由模块 ----------
+app.use(require('./routes/stripe'));
 
 // ============================================================
 //  用户注册（创建 WooCommerce 客户）
@@ -1602,4 +1565,69 @@ app.all('/api/wc/:endpoint*', async (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+});
+
+// ============================================================
+//  AI 分析接口
+// ============================================================
+
+const { analyzeSales, clearCache, streamAnalysis } = require('./services/ai');
+
+/**
+ * POST /api/ai/analyze
+ * Body: {
+ *   overview: { totalOrders, totalRevenue, avgOrderValue, deliveryCount, pickupCount, deliveryRatio, pickupRatio, totalDeliveryFee, statusCounts },
+ *   topProducts: [{ name, totalQty, totalRevenue, deliveryRatio }],
+ *   topAreas: [{ suburb, orderCount, totalRevenue }],
+ *   monthlyTrend: "简要趋势描述",
+ *   dateRange: "2026-07-01 ~ 2026-07-03",
+ *   question: "可选的具体问题"
+ * }
+ * Returns: { analysis: "Markdown 格式的分析文本" }
+ */
+app.post('/api/ai/analyze', async (req, res) => {
+  try {
+    const { overview, topProducts, topAreas, monthlyTrend, dateRange, question } = req.body;
+
+    if (!overview && !topProducts && !topAreas) {
+      return res.status(400).json({ error: 'Please provide at least one data of overview, topProducts or topAreas.' });
+    }
+    console.log('[AI Route] SSE stream — overview:', !!overview, 'products:', topProducts?.length, 'areas:', topAreas?.length, 'monthlyTrend chars:', (monthlyTrend || '').length);
+
+    // SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    await streamAnalysis(
+      { overview, topProducts, topAreas, monthlyTrend, dateRange },
+      question,
+      (chunk) => {
+        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+      }
+    );
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (err) {
+    console.error('[AI Route] SSE error:', err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+      res.end();
+    }
+  }
+});
+
+/**
+ * POST /api/ai/clear-cache
+ * 手动清除 AI 分析缓存
+ */
+app.post('/api/ai/clear-cache', (req, res) => {
+  const count = clearCache();
+  res.json({ cleared: count });
 });
