@@ -231,7 +231,21 @@ body {
 .section-toolbar h2 {
   font-size: 18px;
   font-weight: 600;
+  padding-left: 12px;
+  border-left: 4px solid #0d9488;
 }
+
+/* Delivery Areas section → amber accent */
+#tab-areas .section-toolbar h2 { border-left-color: #d97706; }
+
+/* Products section → indigo accent */
+#tab-products .section-toolbar h2 { border-left-color: #6366f1; }
+
+/* Area Detail → amber (same family as areas) */
+#tab-area-detail .section-toolbar h2 { border-left-color: #d97706; }
+
+/* AI section → purple accent */
+#tab-ai .section-toolbar h2 { border-left-color: #7c3aed; }
 
 .toolbar-hint {
   font-size: 13px;
@@ -668,8 +682,8 @@ td.suburb-link:hover {
   width: 54px;
   height: 54px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0d9488 0%, #059669 100%);
-  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.4);
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -680,7 +694,7 @@ td.suburb-link:hover {
 
 .ai-fab:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 22px rgba(13, 148, 136, 0.55);
+  box-shadow: 0 6px 22px rgba(124, 58, 237, 0.55);
 }
 
 .ai-fab-icon {
@@ -718,7 +732,7 @@ td.suburb-link:hover {
   justify-content: space-between;
   align-items: center;
   padding: 14px 18px;
-  background: linear-gradient(135deg, #0d9488 0%, #059669 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
   color: #fff;
   font-weight: 600;
   font-size: 15px;
@@ -805,9 +819,9 @@ td.suburb-link:hover {
 }
 
 .ai-quick-btn:hover {
-  border-color: #0d9488;
-  background: #f0fdfa;
-  color: #0f766e;
+  border-color: #7c3aed;
+  background: #f5f3ff;
+  color: #7c3aed;
 }
 
 /* Follow-up options after bot reply */
@@ -832,9 +846,9 @@ td.suburb-link:hover {
 }
 
 .ai-followup-btn:hover {
-  border-color: #0d9488;
-  background: #f0fdfa;
-  color: #0f766e;
+  border-color: #7c3aed;
+  background: #f5f3ff;
+  color: #7c3aed;
 }
 
 /* Message bubbles */
@@ -849,7 +863,8 @@ td.suburb-link:hover {
 
 .ai-chat-msg.user {
   align-self: flex-end;
-  background: #0d9488;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -975,7 +990,7 @@ td.suburb-link:hover {
 }
 
 .ai-chat-footer input:focus {
-  border-color: #0d9488;
+  border-color: #7c3aed;
 }
 
 .ai-chat-footer input::placeholder {
@@ -987,7 +1002,7 @@ td.suburb-link:hover {
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: #0d9488;
+  background: #7c3aed;
   color: #fff;
   cursor: pointer;
   display: flex;
@@ -998,7 +1013,7 @@ td.suburb-link:hover {
 }
 
 .ai-chat-footer button:hover {
-  background: #0f766e;
+  background: #6d28d9;
 }
 
 .ai-chat-footer button:disabled {

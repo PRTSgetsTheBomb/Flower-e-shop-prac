@@ -28,7 +28,7 @@ let currentYear = 'all';
 // ---- 常量 ----
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const COLORS = { primary: '#4a6cf7', revenue: '#10b981', pickup: '#f59e0b' };
+const COLORS = { primary: '#0d9488', revenue: '#10b981', pickup: '#f59e0b', area: '#d97706', product: '#6366f1' };
 
 // ---- 共享插件 ----
 /** 创建收益折线叠加插件 —— 在柱子之后画绿线和点，确保在上层 */
@@ -270,7 +270,7 @@ function renderDailyChart(daily) {
     data: {
       labels,
       datasets: [
-        { label: 'Orders', data: daily.map(d => d.orderCount), backgroundColor: '#4a6cf7', borderRadius: 4 },
+        { label: 'Orders', data: daily.map(d => d.orderCount), backgroundColor: '#0d9488', borderRadius: 4 },
         {
           label: 'Revenue ($)', data: daily.map(d => d.revenue), type: 'line', yAxisID: 'y1',
           borderColor: 'transparent', backgroundColor: 'transparent', pointBackgroundColor: 'transparent', pointBorderColor: 'transparent'
@@ -285,7 +285,7 @@ function renderDailyChart(daily) {
             padding: 16, usePointStyle: true,
             generateLabels(chart) {
               return [
-                { text: 'Orders', fillStyle: '#4a6cf7', strokeStyle: '#4a6cf7', lineWidth: 0, hidden: false, index: 0, datasetIndex: 0, pointStyle: 'rect' },
+                { text: 'Orders', fillStyle: '#0d9488', strokeStyle: '#0d9488', lineWidth: 0, hidden: false, index: 0, datasetIndex: 0, pointStyle: 'rect' },
                 { text: 'Revenue ($)', fillStyle: '#10b981', strokeStyle: '#10b981', lineWidth: 3, hidden: false, index: 0, datasetIndex: 1, pointStyle: 'circle' },
               ];
             }
@@ -477,7 +477,7 @@ function renderMonthlyChart(monthly, yearFilter = 'all') {
         {
           label: 'Orders',
           data: filtered.map(m => m.orderCount),
-          backgroundColor: '#4a6cf7',
+          backgroundColor: '#0d9488',
           borderRadius: 4,
         },
         {
@@ -501,7 +501,7 @@ function renderMonthlyChart(monthly, yearFilter = 'all') {
           labels: {
             padding: 16, usePointStyle: true, generateLabels(chart) {
               return [
-                { text: 'Orders', fillStyle: '#4a6cf7', strokeStyle: '#4a6cf7', lineWidth: 0, hidden: false, index: 0, datasetIndex: 0, pointStyle: 'rect' },
+                { text: 'Orders', fillStyle: '#0d9488', strokeStyle: '#0d9488', lineWidth: 0, hidden: false, index: 0, datasetIndex: 0, pointStyle: 'rect' },
                 { text: 'Revenue ($)', fillStyle: '#10b981', strokeStyle: '#10b981', lineWidth: 3, hidden: false, index: 0, datasetIndex: 1, pointStyle: 'circle' },
               ];
             }
@@ -532,7 +532,7 @@ function renderMethodChart(delivery, pickup) {
       labels: ['Delivery', 'Pickup'],
       datasets: [{
         data: [delivery, pickup],
-        backgroundColor: ['#4a6cf7', '#f59e0b'],
+        backgroundColor: ['#6366f1', '#d97706'],
         borderWidth: 0,
       }],
     },
@@ -572,9 +572,9 @@ function renderStatusChart(statusCounts) {
   };
 
   const colors = [
-    '#f59e0b', '#4a6cf7', '#10b981', '#3b82f6',
-    '#ef4444', '#8b5cf6', '#ec4899', '#64748b',
-    '#06b6d4', '#84cc16',
+    '#94a3b8', '#3b82f6', '#10b981', '#06b6d4',
+    '#ef4444', '#8b5cf6', '#f59e0b', '#dc2626',
+    '#ec4899', '#84cc16',
   ];
 
   chartStatus = new Chart(ctx, {
@@ -667,7 +667,7 @@ function renderAreasChart(areas) {
       datasets: [{
         label: 'Orders',
         data: values,
-        backgroundColor: '#4a6cf7',
+        backgroundColor: COLORS.area,
         borderRadius: 4,
       }],
     },
@@ -801,9 +801,9 @@ function toggleProductDetail(tr, product) {
             <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
               <span style="width:100px;font-weight:500;color:#1a1a2e;">${s.suburb}</span>
               <span style="flex:1;height:14px;border-radius:3px;background:#e8ecf0;overflow:hidden;">
-                <span style="display:block;height:100%;width:${(s.qty / maxQty) * 100}%;border-radius:3px;background:linear-gradient(90deg,#4a6cf7,#667eea);"></span>
+                <span style="display:block;height:100%;width:${(s.qty / maxQty) * 100}%;border-radius:3px;background:linear-gradient(90deg,#0d9488,#14b8a6);"></span>
               </span>
-              <span style="font-weight:600;color:#4a6cf7;min-width:20px;text-align:right;">×${s.qty}</span>
+              <span style="font-weight:600;color:#0d9488;min-width:20px;text-align:right;">×${s.qty}</span>
             </div>
           `).join('')}
         </div>
@@ -877,13 +877,13 @@ function renderProductsChart(products) {
           {
             label: 'Delivery',
             data: products.map(p => p.deliveryQty),
-            backgroundColor: '#4a6cf7',
+            backgroundColor: COLORS.product,
             borderRadius: 4,
           },
           {
             label: 'Pickup',
             data: products.map(p => p.pickupQty),
-            backgroundColor: '#f59e0b',
+            backgroundColor: COLORS.pickup,
             borderRadius: 4,
           },
         ],
@@ -1137,7 +1137,7 @@ function renderAreaTrend(monthlyTrend) {
     data: {
       labels: monthsAbbr,
       datasets: [
-        { label: 'Orders', data: monthlyTrend.map(m => m.orderCount), backgroundColor: '#4a6cf7', borderRadius: 4 },
+        { label: 'Orders', data: monthlyTrend.map(m => m.orderCount), backgroundColor: '#0d9488', borderRadius: 4 },
         {
           label: 'Revenue ($)', data: monthlyTrend.map(m => m.revenue), type: 'line', yAxisID: 'y1',
           borderColor: 'transparent', backgroundColor: 'transparent', pointBackgroundColor: 'transparent', pointBorderColor: 'transparent'
@@ -1153,7 +1153,7 @@ function renderAreaTrend(monthlyTrend) {
             padding: 12, usePointStyle: true,
             generateLabels(chart) {
               return [
-                { text: 'Orders', fillStyle: '#4a6cf7', strokeStyle: '#4a6cf7', lineWidth: 0, hidden: false, index: 0, datasetIndex: 0, pointStyle: 'rect' },
+                { text: 'Orders', fillStyle: '#0d9488', strokeStyle: '#0d9488', lineWidth: 0, hidden: false, index: 0, datasetIndex: 0, pointStyle: 'rect' },
                 { text: 'Revenue ($)', fillStyle: '#10b981', strokeStyle: '#10b981', lineWidth: 3, hidden: false, index: 0, datasetIndex: 1, pointStyle: 'circle' },
               ];
             }
