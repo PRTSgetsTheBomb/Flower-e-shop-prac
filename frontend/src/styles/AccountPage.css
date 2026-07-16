@@ -5,12 +5,13 @@
 
 /* -- Login form styles -- */
 .account-card {
-  max-width: 400px;
+  max-width: 520px;
   margin: 0 auto 16px;
-  background: #fff;
-  border: 1px solid #eee;
-  border-radius: 12px;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 36px;
+  box-shadow: var(--shadow-sm);
 }
 
 .account-card h1 {
@@ -349,6 +350,23 @@
   color: #e74c3c;
 }
 
+/* 取消订单按钮 */
+.btn-cancel-order {
+  padding: 4px 12px;
+  background: #dc3545;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.btn-cancel-order:hover {
+  background: #c82333;
+}
+
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {
   .account-page {
@@ -589,9 +607,11 @@
 }
 
 .order-card {
-  border: 1px solid #eee;
-  border-radius: 8px;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 16px;
+  transition: box-shadow var(--transition-normal), border-color var(--transition-normal);
 }
 
 .order-header {
@@ -687,12 +707,11 @@
   text-decoration: none;
   color: inherit;
   display: block;
-  transition: box-shadow 0.2s;
 }
 
 .order-card-link:hover .order-card {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border-color: #ccc;
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-light);
 }
 
 .order-item-more {

@@ -239,17 +239,17 @@ app.post('/api/create-order', async (req, res) => {
           ...(item.deliveryDate ? [{ key: 'Delivery Date', value: item.deliveryDate }] : []),
           ...(item.deliveryMethod ? [{ key: 'Delivery Method', value: item.deliveryMethod }] : []),
           ...(item.giftMessage ? [{ key: 'Gift Message', value: item.giftMessage }] : []),
+          ...(item.deliveryNote ? [{ key: 'Delivery Note', value: item.deliveryNote }] : []),
         ],
       })),
       customer_id: customerId,
-      customer_note: items
-        .filter(item => item.giftMessage)
-        .map(item => `Gift Message for "${item.name}": ${item.giftMessage}`)
-        .join(' | '),
+      customer_note: '',
       meta_data: [
         {
           key: 'delivery_method',
-          value: items.some(item => item.deliveryMethod === 'delivery') ? 'Delivery' : 'Pickup',
+          value: items.every(item => item.deliveryMethod !== 'delivery') ? 'Pickup'
+               : items.every(item => item.deliveryMethod === 'delivery') ? 'Delivery'
+               : 'Mixed',
         },
       ],
     };
@@ -299,147 +299,12 @@ app.post('/api/create-order', async (req, res) => {
 /**
  * GET /api/order/:id — 从 WooCommerce 获取订单实时状态（含各步骤时间戳）
  */
-app.get('/api/order/:id', async (req, res) => {
-  try {
-    const { data } = await wcApi.get(`orders/${req.params.id}`);
-    const findMeta = (key) => data.meta_data?.find(m => m.key === key)?.value || null;
-    res.json({
-      id: data.id,
-      number: data.number,
-      status: data.status,
-      dateCreated: data.date_created,
-      datePaid: data.date_paid,
-      dateShipped: findMeta('_date_shipped'),
-      dateCompleted: data.date_completed,
-      total: data.total,
-      customerNote: data.customer_note,
-      billing: data.billing,
-      shipping: data.shipping,
-      lineItems: data.line_items.map(item => ({
-        id: item.id,
-        name: item.name,
-        qty: item.quantity,
-        price: item.price,
-        image: item.image?.src || null,
-        deliveryDate: item.meta_data?.find(m => m.key === 'Delivery Date')?.value || '',
-        deliveryMethod: item.meta_data?.find(m => m.key === 'Delivery Method')?.value || (data.shipping?.address_1 ? 'delivery' : 'pickup'),
-        giftMessage: item.meta_data?.find(m => m.key === 'Gift Message')?.value || '',
-      })),
-    })
-  } catch (err) {
-    const status = err.response?.status || 500;
-    res.status(status).json({ error: err.response?.data?.message || err.message })
-  }
-});
-
-/**
- * PUT /api/order/:id/status — 更新订单状态并记录时间戳
- * Body: { status: "processing" | "shipped" | "readyforpick" | "completed" }
- *
- * 状态变更时自动写入对应时间戳到 order meta_data：
- *   - shipped       → 记录 _date_shipped
- *   - readyforpick  → 记录 _date_readyforpick
- *   - completed     → 记录 _date_completed
- * 一次变更只打一个时间戳，历史步骤逐步点亮
- */
-app.put('/api/order/:id/status', async (req, res) => {
-  try {
-    const { status } = req.body;
-    if (!status) return res.status(400).json({ error: 'Status is required.' });
-
-    // 获取当前订单已有的 meta_data
-    const { data: current } = await wcApi.get(`orders/${req.params.id}`);
-    const meta = (current.meta_data || []).map(m => ({ key: m.key, value: m.value }));
-
-    // 为当前状态记录时间戳
-    const now = new Date().toISOString();
-    const timestampKey = `_date_${status}`;
-    const exists = meta.find(m => m.key === timestampKey);
-    if (exists) {
-      exists.value = now;
-    } else {
-      meta.push({ key: timestampKey, value: now });
-    }
-
-    await wcApi.put(`orders/${req.params.id}`, { status, meta_data: meta });
-
-    // 状态变更时发送通知邮件
-    const customerName = [current.billing?.first_name, current.billing?.last_name].filter(Boolean).join(' ') || 'Valued Customer';
-    const email = current.billing?.email;
-    const items = current.line_items?.map(item => ({ name: item.name, qty: item.quantity, price: parseFloat(item.price) })) || [];
-    const deliveryMeta = (current.meta_data || []).find(m => m.key === 'delivery_method');
-    const deliveryMethod = deliveryMeta?.value === 'Delivery' ? 'Delivery' : 'Pickup';
-
-    if (email) {
-      if (status === 'processing') {
-        const deliveryDate = (current.line_items || []).find(li => li.meta_data?.find(m => m.key === 'Delivery Date'))?.meta_data?.find(m => m.key === 'Delivery Date')?.value || null;
-        sendOrderConfirmation({ to: email, name: customerName, orderId: req.params.id, total: parseFloat(current.total), items, status: 'processing', deliveryMethod, deliveryAddress: current.shipping, pickupLocation: 'Pisces Flower Studio, Oakleigh South, Melbourne', deliveryTime: deliveryDate });
-      } else if (status === 'shipped') {
-        sendOrderShipped({ to: email, name: customerName, orderId: req.params.id, items, deliveryAddress: current.shipping });
-      } else if (status === 'readyforpickup') {
-        sendOrderReadyForPickup({ to: email, name: customerName, orderId: req.params.id, items, pickupLocation: 'Pisces Flower Studio, Oakleigh South, Melbourne' });
-      } else if (status === 'completed') {
-        sendOrderCompleted({ to: email, name: customerName, orderId: req.params.id, deliveryMethod });
-      }
-    }
-
-    res.json({ success: true, status, timestamp: now });
-  } catch (err) {
-    res.status(500).json({ error: err.response?.data?.message || err.message });
-  }
-});
-
 // ============================================================
-//  WooCommerce Webhook — 订单状态变更通知
+//  订单状态管理（详见 services/order-routes.js）
 // ============================================================
 
-/**
- * POST /api/webhook/order-status
- * 由 WooCommerce 在订单状态变更时调用
- *
- * 配置方式：
- *   WooCommerce 后台 → 设置 → 高级 → Webhooks → 添加
- *   - Topic: Order status changed
- *   - Delivery URL: http://YOUR_SERVER:5000/api/webhook/order-status
- *   - Secret: 可选，用于验签
- */
-app.post('/api/webhook/order-status', express.json({ type: 'application/json' }), async (req, res) => {
-  // 立即返回 200，避免 WooCommerce 重试
-  res.status(200).json({ received: true });
-
-  try {
-    const order = req.body;
-    if (!order?.id || !order?.status) return;
-
-    const status = order.status;
-    const email = order.billing?.email;
-    if (!email) return;
-
-    const customerName = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ') || 'Valued Customer';
-    const rawItems = Array.isArray(order.line_items) ? order.line_items : (order.line_items ? Object.values(order.line_items) : []);
-    const items = rawItems.map(item => ({ name: item.name || item.product_name, qty: item.quantity || item.qty, price: parseFloat(item.price || 0) }));
-    const deliveryMeta = (order.meta_data || []).find(m => m.key === 'delivery_method');
-    const deliveryMethod = deliveryMeta?.value === 'Delivery' ? 'Delivery' : 'Pickup';
-
-    // 忽略初始创建状态，因为下单时已发了确认邮件
-    if (status === 'on-hold' || status === 'pending') return;
-
-    console.log('[Webhook] Order', order.id, 'status changed to', status);
-
-    if (status === 'processing') {
-      const deliveryDate = order.line_items?.find(li => li.meta_data?.find(m => m.key === 'Delivery Date'))?.meta_data?.find(m => m.key === 'Delivery Date')?.value || null;
-      sendOrderConfirmation({ to: email, name: customerName, orderId: order.id, total: parseFloat(order.total), items, status: 'processing', deliveryMethod, deliveryAddress: order.shipping, pickupLocation: 'Pisces Flower Studio, Oakleigh South, Melbourne', deliveryTime: deliveryDate });
-    } else if (status === 'shipped') {
-      sendOrderShipped({ to: email, name: customerName, orderId: order.id, items, deliveryAddress: order.shipping });
-    } else if (status === 'readyforpickup') {
-      sendOrderReadyForPickup({ to: email, name: customerName, orderId: order.id, items, pickupLocation: 'Pisces Flower Studio, Oakleigh South, Melbourne' });
-    } else if (status === 'completed') {
-      sendOrderCompleted({ to: email, name: customerName, orderId: order.id, deliveryMethod });
-    }
-  } catch (err) {
-    console.error('[Webhook] Error processing order status:', err.message);
-  }
-});
+const { registerOrderRoutes } = require('./services/order-routes');
+registerOrderRoutes(app, wcApi);
 
 // ============================================================
 //  检查用户是否可以评价某商品
@@ -832,6 +697,9 @@ app.get('/api/orders', async (req, res) => {
       }
     }
 
+    // 过滤掉已删除（trash）的订单
+    allOrders = allOrders.filter(o => o.status !== 'trash');
+
     // 映射为分析用结构
     const orders = allOrders.map(order => ({
       id: order.id,
@@ -901,7 +769,8 @@ async function fetchAllWcOrders(params = {}) {
     allOrders = allOrders.concat(res.data);
   }
 
-  return allOrders;
+  // 过滤掉已删除（trash）的订单
+  return allOrders.filter(o => o.status !== 'trash');
 }
 
 // ---- Product cache (reused across endpoints) ----
@@ -957,7 +826,14 @@ async function fetchAllWcProducts() {
  */
 function getDeliveryMethodFromOrder(order) {
   const dmMeta = order.meta_data?.find(m => m.key === 'delivery_method');
-  if (dmMeta) return dmMeta.value === 'Delivery' ? 'delivery' : 'pickup';
+  if (dmMeta) {
+    if (dmMeta.value === 'Delivery') return 'delivery';
+    if (dmMeta.value === 'Pickup') return 'pickup';
+    // 'Mixed' 或其他值：检查 line items 各自的 Delivery Method
+  }
+  // 检查第一个 line item 的配送方式
+  const firstItemMethod = order.line_items?.[0]?.meta_data?.find(m => m.key === 'Delivery Method')?.value;
+  if (firstItemMethod) return firstItemMethod === 'delivery' ? 'delivery' : 'pickup';
   // 兜底：有配送地址视为 delivery
   return order.shipping?.address_1 ? 'delivery' : 'pickup';
 }
@@ -1035,6 +911,15 @@ app.get('/api/analytics/summary', async (req, res) => {
       .map(m => ({ ...m, revenue: Math.round(m.revenue * 100) / 100 }))
       .sort((a, b) => a.month.localeCompare(b.month));
 
+    // 计算 areas 和 totalItems
+    const areasSet = new Set();
+    let totalItems = 0;
+    for (const o of orders) {
+      totalItems += (o.line_items || []).length;
+      const suburb = (o.shipping?.city || '').trim();
+      if (suburb) areasSet.add(suburb);
+    }
+
     res.json({
       totalOrders,
       totalRevenue: Math.round(totalRevenue * 100) / 100,
@@ -1046,6 +931,8 @@ app.get('/api/analytics/summary', async (req, res) => {
       avgDeliveryFee: deliveryCount > 0 ? Math.round((totalDeliveryFee / deliveryCount) * 100) / 100 : 0,
       statusCounts,
       monthly,
+      areasServed: areasSet.size,           // 今天配送到几个区
+      avgItemsPerOrder: totalItems > 0 ? (totalItems / totalOrders).toFixed(1) : 0,
     });
   } catch (err) {
     console.error('[Analytics] Summary error:', err.message);
@@ -1568,6 +1455,177 @@ app.listen(PORT, () => {
 });
 
 // ============================================================
+//  今日待处理订单
+// ============================================================
+
+/**
+ * GET /api/analytics/today?days=7
+ * 返回未来 N 天需要处理的订单（按 Delivery Date meta 字段筛选）
+ * 默认 days=1，即仅当天
+ */
+app.get('/api/analytics/today', async (req, res) => {
+  try {
+    const days = Math.max(1, parseInt(req.query.days) || 1);
+    const melbourneToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' });
+    const dates = [];
+    for (let i = 0; i < days; i++) {
+      const [y, m, day] = melbourneToday().split('-').map(Number);
+      const d = new Date(Date.UTC(y, m - 1, day + i))
+      dates.push(d.toISOString().split('T')[0]);
+    }
+
+    // 将 ISO 日期时间字符串转为墨尔本日期 (YYYY-MM-DD)，解决 WC 站点时区 != 墨尔本时区的匹配问题
+    const toMelbDate = (isoStr) => {
+      if (!isoStr) return '';
+      return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' });
+    };
+
+    // 按状态分拣
+    const rawOrders = await fetchAllWcOrders();
+    // 终态 / 暂停状态（这些不显示在待处理列表中）
+    const inactiveStatuses = ['completed', 'cancelled', 'refunded', 'failed', 'trash', 'on-hold', 'pending'];
+    // To Deliver / Ready for Pickup: 所有非终态订单 + 携带自定义 dashboard_status 的订单
+    const processingOrders = rawOrders.filter(o => {
+      const dashStatus = o.meta_data?.find(m => m.key === 'dashboard_status')?.value;
+      // 有自定义状态的始终显示（如 readyforpickup / fulfilled）
+      if (dashStatus === 'fulfilled' || dashStatus === 'readyforpickup') return true;
+      return !inactiveStatuses.includes(o.status);
+    });
+    const onHoldOrders = rawOrders.filter(o => o.status === 'on-hold');
+    const completedOrders = rawOrders.filter(o => o.status === 'completed');
+
+    const deliveries = [];
+    const pickups = [];
+
+    for (const o of processingOrders) {
+      const hasMatch = (o.line_items || []).some(item => {
+        const dd = item.meta_data?.find(m => m.key === 'Delivery Date')?.value;
+        return dd && dates.includes(dd.split('T')[0]);
+      });
+      // 没有 Delivery Date 的订单：用创建日期（墨尔本时区）回退匹配
+      const createdDate = toMelbDate(o.date_created);
+      const dashStatus = o.meta_data?.find(m => m.key === 'dashboard_status')?.value;
+      // 已发货 / 配送中的订单始终显示，不受日期筛选限制
+      const isInTransit = o.status === 'shipped' || dashStatus === 'fulfilled' || dashStatus === 'readyforpickup';
+      if (!isInTransit && !hasMatch && !dates.includes(createdDate)) continue;
+
+      const method = getDeliveryMethodFromOrder(o);
+      const customerName = [o.billing?.first_name, o.billing?.last_name]
+        .filter(Boolean).join(' ') || 'Unknown';
+
+      const lineItems = (o.line_items || []).map(item => ({
+        name: item.name,
+        qty: item.quantity,
+        giftMessage: item.meta_data?.find(m => m.key === 'Gift Message')?.value || '',
+        deliveryNote: item.meta_data?.find(m => m.key === 'Delivery Note')?.value || '',
+        deliveryDate: item.meta_data?.find(m => m.key === 'Delivery Date')?.value || '',
+      }));
+
+      const orderInfo = {
+        id: o.id,
+        number: o.number,
+        status: o.meta_data?.find(m => m.key === 'dashboard_status')?.value || o.status,
+        customer: customerName,
+        phone: o.billing?.phone || '',
+        address: o.shipping?.address_1
+          ? `${o.shipping.address_1}, ${o.shipping.city || ''} ${o.shipping.postcode || ''}`.trim()
+          : '',
+        total: parseFloat(o.total || 0),
+        items: lineItems,
+        customerNote: o.customer_note || '',
+        createdDate: toMelbDate(o.date_created),
+      };
+      if (method === 'delivery') deliveries.push(orderInfo);
+      else pickups.push(orderInfo);
+    }
+
+    // 排序：有 Note 的优先 > 日期早的优先
+    const sortByNoteThenDate = (a, b) => {
+      const aNote = a.items.some(i => i.deliveryNote) ? 0 : 1;
+      const bNote = b.items.some(i => i.deliveryNote) ? 0 : 1;
+      if (aNote !== bNote) return aNote - bNote;
+      return (a.items[0]?.deliveryDate || '').localeCompare(b.items[0]?.deliveryDate || '');
+    };
+    deliveries.sort(sortByNoteThenDate);
+    pickups.sort(sortByNoteThenDate);
+
+    // 按日期筛选 completed 订单
+    const compDeliveries = [];
+    const compPickups = [];
+    for (const o of completedOrders) {
+      const hasMatch = (o.line_items || []).some(item => {
+        const dd = item.meta_data?.find(m => m.key === 'Delivery Date')?.value;
+        return dd && dates.includes(dd.split('T')[0]);
+      });
+      const createdDate = toMelbDate(o.date_created);
+      if (!hasMatch && !dates.includes(createdDate)) continue;
+      const method = getDeliveryMethodFromOrder(o);
+      const customerName = [o.billing?.first_name, o.billing?.last_name]
+        .filter(Boolean).join(' ') || 'Unknown';
+      const lineItems = (o.line_items || []).map(item => ({
+        name: item.name,
+        qty: item.quantity,
+        giftMessage: item.meta_data?.find(m => m.key === 'Gift Message')?.value || '',
+        deliveryNote: item.meta_data?.find(m => m.key === 'Delivery Note')?.value || '',
+        deliveryDate: item.meta_data?.find(m => m.key === 'Delivery Date')?.value || '',
+      }));
+      const orderInfo = {
+        id: o.id, number: o.number, status: o.status, customer: customerName,
+        phone: o.billing?.phone || '',
+        address: o.shipping?.address_1
+          ? `${o.shipping.address_1}, ${o.shipping.city || ''} ${o.shipping.postcode || ''}`.trim()
+          : '',
+        total: parseFloat(o.total || 0),
+        items: lineItems,
+        createdDate: toMelbDate(o.date_created),
+      };
+      if (method === 'delivery') compDeliveries.push(orderInfo);
+      else compPickups.push(orderInfo);
+    }
+
+    // on-hold 订单：不受日期筛选限制，始终显示（需管理员审核操作）
+    const holdDeliveries = [];
+    const holdPickups = [];
+    for (const o of onHoldOrders) {
+      const method = getDeliveryMethodFromOrder(o);
+      const customerName = [o.billing?.first_name, o.billing?.last_name].filter(Boolean).join(' ') || 'Unknown';
+      const orderCreatedDate = toMelbDate(o.date_created);
+      const lineItems = (o.line_items || []).map(item => ({
+        name: item.name, qty: item.quantity,
+        giftMessage: item.meta_data?.find(m => m.key === 'Gift Message')?.value || '',
+        deliveryNote: item.meta_data?.find(m => m.key === 'Delivery Note')?.value || '',
+        deliveryDate: item.meta_data?.find(m => m.key === 'Delivery Date')?.value || orderCreatedDate,
+      }));
+      const orderInfo = {
+        id: o.id, number: o.number, status: o.status, customer: customerName,
+        phone: o.billing?.phone || '', total: parseFloat(o.total || 0),
+        address: o.shipping?.address_1 ? `${o.shipping.address_1}, ${o.shipping.city || ''} ${o.shipping.postcode || ''}`.trim() : '',
+        items: lineItems,
+        createdDate: orderCreatedDate,
+      };
+      if (method === 'delivery') holdDeliveries.push(orderInfo);
+      else holdPickups.push(orderInfo);
+    }
+
+    res.json({
+      date: dates[0],
+      dateRange: days > 1 ? `${dates[0]} ~ ${dates[dates.length - 1]}` : dates[0],
+      days,
+      deliveryCount: deliveries.length,
+      pickupCount: pickups.length,
+      deliveries,
+      pickups,
+      onHold: { deliveries: holdDeliveries, pickups: holdPickups },
+      completed: { deliveries: compDeliveries, pickups: compPickups },
+    });
+  } catch (err) {
+    console.error('[Today] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ============================================================
 //  AI 分析接口
 // ============================================================
 
@@ -1587,12 +1645,30 @@ const { analyzeSales, clearCache, streamAnalysis } = require('./services/ai');
  */
 app.post('/api/ai/analyze', async (req, res) => {
   try {
-    const { overview, topProducts, topAreas, monthlyTrend, dateRange, question } = req.body;
+    const { overview, topProducts, topAreas, monthlyTrend, todaySummary, dateRange, question, model } = req.body;
 
     if (!overview && !topProducts && !topAreas) {
       return res.status(400).json({ error: 'Please provide at least one data of overview, topProducts or topAreas.' });
     }
     console.log('[AI Route] SSE stream — overview:', !!overview, 'products:', topProducts?.length, 'areas:', topAreas?.length, 'monthlyTrend chars:', (monthlyTrend || '').length);
+
+    // 拉取完整历史订单（供 AI 做客户分析、趋势判断）
+    let historyOrders = [];
+    try {
+      const allOrders = await fetchAllWcOrders();
+      historyOrders = allOrders.map(o => ({
+        number: o.number,
+        status: o.status,
+        date: (o.date_created || '').split('T')[0],
+        total: parseFloat(o.total || 0),
+        customer: [o.billing?.first_name, o.billing?.last_name].filter(Boolean).join(' ') || 'Unknown',
+        items: (o.line_items || []).map(i => ({ name: i.name, qty: i.quantity })),
+        delivery: o.meta_data?.find(m => m.key === 'delivery_method')?.value
+          || (o.shipping?.address_1 ? 'Delivery' : 'Pickup'),
+      }));
+    } catch (e) {
+      console.warn('[AI Route] Failed to fetch full history, proceeding without it:', e.message);
+    }
 
     // SSE headers
     res.writeHead(200, {
@@ -1603,8 +1679,9 @@ app.post('/api/ai/analyze', async (req, res) => {
     });
 
     await streamAnalysis(
-      { overview, topProducts, topAreas, monthlyTrend, dateRange },
+      { overview, topProducts, topAreas, monthlyTrend, todaySummary, dateRange, historyOrders },
       question,
+      model || '',
       (chunk) => {
         res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
       }

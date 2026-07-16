@@ -25,11 +25,12 @@
   font-size: 0.9em;
   text-decoration: none;
   margin-bottom: 10px;
-  transition: color 0.2s;
+  transition: color var(--transition-fast), transform var(--transition-fast);
 }
 
 .footer-col a:hover {
   color: #fff;
+  transform: translateX(3px);
 }
 
 .footer-bottom {

@@ -23,7 +23,7 @@ let chartProducts = null;
 
 // ---- 状态 ---- 
 let allMonthlyData = null;
-let currentYear = 'all';
+let currentYear = new Date().getFullYear().toString();
 
 // ---- 常量 ----
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -94,6 +94,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (link) {
       const suburb = link.dataset.suburb;
       if (suburb) openAreaDetail(suburb);
+      return;
+    }
+    // 订单状态按钮
+    const btn = e.target.closest('.today-action-btn');
+    if (btn) {
+      const status = btn.dataset.action;
+      const oid = parseInt(btn.dataset.oid);
+      if (status && oid) {
+        if (status === 'cancelled') {
+          if (!confirm('Are you sure you want to cancel this order? This action cannot be undone.')) return;
+        }
+        changeOrderStatus(oid, status);
+      }
     }
   });
 });
@@ -103,13 +116,57 @@ async function loadAll() {
   btn.disabled = true;
   btn.textContent = 'Loading...';
 
+  document.querySelectorAll('.error-banner').forEach(el => el.remove());
+
+  // 读取当前筛选状态（保留用户选择，首次加载时为空则默认今天）
+  let startDate = document.getElementById('filterStartDate').value;
+  let endDate = document.getElementById('filterEndDate').value;
+  const upcomingDays = document.getElementById('upcomingDays').value || '1';
+
+  const isFirstLoad = !startDate && !endDate && !window._dashboardLoaded;
+  if (isFirstLoad) {
+    const today = new Date().toISOString().split('T')[0];
+    startDate = today;
+    endDate = today;
+    document.getElementById('filterStartDate').value = today;
+    document.getElementById('filterEndDate').value = today;
+    const filterRow = document.querySelector('.date-filter-row');
+    if (filterRow) filterRow.classList.add('filter-active');
+    toggleFilterLabel(`Today: ${today}`);
+    document.getElementById('btnAllToday').textContent = 'All';
+    document.getElementById('upcomingDays').value = '1';
+  }
+  window._dashboardLoaded = true;
+
   try {
     await Promise.all([
-      loadSummary(),
-      loadDeliveryAreas(),
-      loadProducts(),
-      // loadMonthlyProducts(),
+      loadSummary(startDate, endDate),
+      loadDeliveryAreas(startDate, endDate),
+      loadProducts(startDate, endDate),
+      loadTodayOrders(upcomingDays),
     ]);
+
+    // Trend图表单独加载全量月度数据（始终显示全年趋势，不受日期筛选影响）
+    const fullRes = await fetch(`${API_BASE}/api/analytics/summary`);
+    if (fullRes.ok) {
+      const fullData = await fullRes.json();
+      allMonthlyData = fullData.monthly;
+      window.allMonthlyData = fullData.monthly;
+      buildYearTabs(fullData.monthly);
+      renderMonthlyChart(fullData.monthly, currentYear);
+      updateYearSummary(fullData.monthly, currentYear);
+    }
+
+    // AI 用：单独加载全量商品和区域数据（不受日期筛选影响）
+    try {
+      const fullProd = await fetch(`${API_BASE}/api/analytics/products`);
+      if (fullProd.ok) window.allProductsData = (await fullProd.json()).products || [];
+    } catch {}
+    try {
+      const fullArea = await fetch(`${API_BASE}/api/analytics/delivery-areas`);
+      if (fullArea.ok) window.allAreasData = (await fullArea.json()).areas || [];
+    } catch {}
+
     document.getElementById('lastUpdate').textContent = `Last updated: ${new Date().toLocaleString()}`;
   } catch (err) {
     console.error('[Dashboard] Load error:', err);
@@ -117,6 +174,231 @@ async function loadAll() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Refresh';
+  }
+}
+
+// ---- 今日订单 ----
+async function loadTodayOrders(days) {
+  try {
+    const d = days || 1;
+    const res = await fetch(`${API_BASE}/api/analytics/today?days=${d}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    document.getElementById('todayDate').textContent = data.dateRange || data.date;
+    const hintEl = document.getElementById('todayHint');
+    const totalOrders = data.deliveryCount + data.pickupCount
+      + ((data.onHold?.deliveries?.length || 0) + (data.onHold?.pickups?.length || 0))
+      + ((data.completed?.deliveries?.length || 0) + (data.completed?.pickups?.length || 0));
+    if (hintEl) hintEl.textContent =
+      (d > 1 ? `Next ${d} days | ` : '') + `Total: ${totalOrders} orders`;
+
+    // 头部计数
+    const delCountHdr = document.getElementById('todayDelCount');
+    if (delCountHdr) delCountHdr.textContent = data.deliveryCount;
+    const pickCountHdr = document.getElementById('todayPickCount');
+    if (pickCountHdr) pickCountHdr.textContent = data.pickupCount;
+
+    const delCountEl = document.getElementById('todayDeliveryCount');
+    if (delCountEl) delCountEl.textContent = data.deliveryCount;
+    const pickCountEl = document.getElementById('todayPickupCount');
+    if (pickCountEl) pickCountEl.textContent = data.pickupCount;
+
+    // 配送列表
+    const delList = document.getElementById('todayDeliveryList');
+    if (delList) {
+      if (data.deliveries.length === 0) {
+        delList.innerHTML = '<p class="today-empty">No deliveries for today.</p>';
+      } else {
+        delList.innerHTML = data.deliveries.map(o => renderTodayOrder(o)).join('');
+      }
+    }
+
+    // 自提列表
+    const pickupList = document.getElementById('todayPickupList');
+    if (pickupList) {
+      if (data.pickups.length === 0) {
+        pickupList.innerHTML = '<p class="today-empty">No pickups for today.</p>';
+      } else {
+        pickupList.innerHTML = data.pickups.map(o => renderTodayOrder(o)).join('');
+      }
+    }
+
+    // On Hold 订单
+    const holdData = data.onHold;
+    const holdList = document.getElementById('todayOnHoldList');
+    if (holdList && holdData) {
+      const allHold = [...(holdData.deliveries || []), ...(holdData.pickups || [])];
+      const holdCountHdr = document.getElementById('todayHoldCount');
+      if (holdCountHdr) holdCountHdr.textContent = allHold.length;
+      if (allHold.length === 0) {
+        holdList.innerHTML = '<p class="today-empty">No orders on hold.</p>';
+      } else {
+        holdList.innerHTML = allHold.map(o => renderTodayOrder(o)).join('');
+      }
+    }
+
+    // 已完成订单（从同一响应获取）
+    const completedList = document.getElementById('todayCompletedList');
+    const compData = data.completed;
+    if (completedList && compData) {
+      const allCompleted = [...(compData.deliveries || []), ...(compData.pickups || [])];
+      const compCountHdr = document.getElementById('todayCompCount');
+      if (compCountHdr) compCountHdr.textContent = allCompleted.length;
+      const compCountEl = document.getElementById('kpi-completed');
+      if (compCountEl) compCountEl.textContent = allCompleted.length;
+      if (allCompleted.length === 0) {
+        completedList.innerHTML = '<p class="today-empty">No completed orders for today.</p>';
+      } else {
+        completedList.innerHTML = allCompleted.map(o => renderTodayOrder(o)).join('');
+      }
+    }
+
+    // 今日配送区域
+    const areasList = document.getElementById('todayAreasList');
+    if (areasList && data.deliveries.length > 0) {
+      const suburbs = [...new Set(data.deliveries.map(o => {
+        const parts = o.address.split(',');
+        if (parts.length < 2) return '';
+        return parts[1].trim().replace(/\s*\d+$/, '');
+      }).filter(s => s && s !== 'Unknown'))].sort();
+      const areasCountEl = document.getElementById('kpi-areasToday');
+      if (areasCountEl) areasCountEl.textContent = suburbs.length;
+      const areaCountHdr = document.getElementById('todayAreaCount');
+      if (areaCountHdr) areaCountHdr.textContent = suburbs.length;
+      // 店铺坐标 (Pisces Flower, Oakleigh South)
+      const SHOP = [-37.92, 145.09];
+      const haversineKm = (lat1, lon1, lat2, lon2) => {
+        const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      };
+      // 按距离从近到远排序
+      suburbs.sort((a, b) => {
+        const da = suburbCoords[a] ? haversineKm(SHOP[0], SHOP[1], suburbCoords[a][0], suburbCoords[a][1]) : Infinity;
+        const db = suburbCoords[b] ? haversineKm(SHOP[0], SHOP[1], suburbCoords[b][0], suburbCoords[b][1]) : Infinity;
+        return da - db;
+      });
+      areasList.innerHTML = suburbs.map(s => {
+        const coord = suburbCoords[s];
+        const dist = coord ? haversineKm(SHOP[0], SHOP[1], coord[0], coord[1]) : null;
+        const distStr = dist !== null ? `${dist.toFixed(1)} km` : '';
+        // 统计该郊区的订单数
+        const count = data.deliveries.filter(o => {
+          const parts = o.address.split(',');
+          if (parts.length < 2) return false;
+          return parts[1].trim().replace(/\s*\d+$/, '') === s;
+        }).length;
+        return `<div class="today-order" style="padding:6px 10px;">
+          <div class="today-order-head" style="font-size:13px;gap:6px;justify-content:space-between;">
+            <span><strong>📍 ${s}</strong> <span style="color:#94a3b8;">×${count}</span></span>
+            ${distStr ? `<span style="color:#d97706;font-size:11px;white-space:nowrap;">${distStr}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    } else if (areasList) {
+      const areasCountEl = document.getElementById('kpi-areasToday');
+      if (areasCountEl) areasCountEl.textContent = '0';
+      areasList.innerHTML = '<p class="today-empty">No areas today.</p>';
+    }
+  } catch (err) {
+    console.error('[Today] Load error:', err);
+  }
+}
+
+function renderTodayOrder(order) {
+  const items = order.items.map(i => {
+    let label = `${i.name} × ${i.qty}`;
+    if (i.giftMessage) label += `<br><span class="today-gift">💬 "${i.giftMessage}"</span>`;
+    return label;
+  }).join('<br>');
+
+  // 统一显示在订单级，去重
+  const allNotes = [...new Set(order.items.map(i => i.deliveryNote).filter(Boolean))];
+  const deliveryNote = allNotes.length > 0
+    ? `<div class="today-note">📋 ${allNotes.join(' | ')}</div>`
+    : '';
+
+  const note = order.customerNote
+    ? `<div class="today-note">📝 ${order.customerNote}</div>`
+    : '';
+
+  const statusLabels = {
+    'processing': ['Processing', '#ffc107', '#333'],
+    'fulfilled': ['Delivering', '#3b82f6', '#fff'],
+    'shipped': ['Delivering', '#3b82f6', '#fff'],
+    'readyforpickup': ['Ready', '#10b981', '#fff'],
+    'on-hold': ['On Hold', '#f59e0b', '#fff'],
+    'completed': ['Completed', '#28a745', '#fff'],
+    'cancelled': ['Cancelled', '#dc3545', '#fff'],
+  };
+  const [slabel, sbg, scolor] = statusLabels[order.status] || [order.status || '?', '#e0e4ea', '#666'];
+
+  // 取第一个 item 的配送日期（要求完成日期）和订单创建日期
+  const deliveryDate = order.items?.[0]?.deliveryDate?.split('T')[0] || '';
+  const createdDate = order.createdDate || '';
+
+  // Delivery: on-hold→processing→fulfilled→completed
+  // Pickup:   on-hold→processing→readyforpickup→completed
+  const isPickup = !order.address;
+  const statusFlow = isPickup
+    ? {
+      'on-hold': ['processing', '▶️', 'Start processing'],
+      'processing': ['readyforpickup', '📦', 'Ready for pickup'],
+      'readyforpickup': ['completed', '✅', 'Mark completed']
+    }
+    : {
+      'on-hold': ['processing', '▶️', 'Start processing'],
+      'processing': ['fulfilled', '🚚', 'Start delivering'],
+      'fulfilled': ['completed', '✅', 'Mark completed']
+    };
+  const flow = statusFlow[order.status];
+  const actionBtn = flow
+    ? `<button class="today-action-btn" data-action="${flow[0]}" data-oid="${order.id}"
+         title="${flow[2]}">${flow[1]}</button>`
+    : '';
+  // 取消按钮
+  const cancelBtn = (order.status === 'on-hold' || order.status === 'processing')
+    ? `<button class="today-action-btn" data-action="cancelled" data-oid="${order.id}"
+         title="Cancel order" style="background:#dc3545;color:#fff;">✕</button>`
+    : '';
+
+  return `
+  <div class="today-order">
+    <div class="today-order-head">
+      <strong>${order.number}</strong>
+      ${actionBtn}
+      ${cancelBtn}
+      <span class="today-status-badge" style="background:${sbg};color:${scolor}">${slabel}</span>
+      <span>${order.customer}</span>
+      ${createdDate ? `<span class="today-date-badge" style="background:#e8f0fe;color:#1a73e8;" title="Order date">From ${createdDate}</span>` : ''}
+      ${deliveryDate ? `<span class="today-date-badge" title="Delivery/Pickup date">To ${deliveryDate}</span>` : ''}
+      ${order.phone ? `<span class="today-phone-badge">${order.phone}</span>` : ''}
+    </div>
+    <div class="today-order-body">
+        <div>${items}</div>
+        ${deliveryNote}
+        ${order.address ? `<div class="today-addr">${order.address}  |  <span style="color:#10b981;font-weight:600;">$${order.total.toFixed(2)}</span></div>`
+      : `<div class="today-addr" style="color:#10b981;font-weight:600;">$${order.total.toFixed(2)}</div>`}
+        ${note}
+    </div>
+  </div>
+  `;
+}
+
+async function changeOrderStatus(orderId, newStatus) {
+  try {
+    const res = await fetch(`${API_BASE}/api/order/${orderId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!res.ok) throw new Error('Failed to update order status.');
+    // 全页刷新（KPI 卡片 + 订单列表 + 图表）
+    loadAll();
+  } catch (err) {
+    console.error('[Order] Update status error:', err);
+    showError('Failed to update order status.');
   }
 }
 
@@ -148,7 +430,7 @@ async function loadSummary(startDate, endDate) {
     document.getElementById('filterEndDate').value = '';
     const filterRow = document.querySelector('.date-filter-row');
     if (filterRow) filterRow.classList.remove('filter-active');
-    toggleFilterLabel('');
+    toggleFilterLabel('All');
   }
 
   // 构建带日期参数的 URL
@@ -168,10 +450,16 @@ async function loadSummary(startDate, endDate) {
   document.getElementById('kpi-totalRevenue').textContent = `$${data.totalRevenue.toFixed(2)}`;
   const avgOrder = data.totalOrders > 0 ? Math.round(data.totalRevenue / data.totalOrders * 100) / 100 : 0;
   document.getElementById('kpi-avgOrderValue').textContent = `$${avgOrder.toFixed(2)}`;
-  document.getElementById('kpi-deliveryCount').textContent = `${data.deliveryCount} (${data.deliveryRatio}%)`;
-  document.getElementById('kpi-pickupCount').textContent = `${data.pickupCount} (${data.pickupRatio}%)`;
+  const deliveryEl = document.getElementById('kpi-deliveryCount');
+  if (deliveryEl) deliveryEl.textContent = `${data.deliveryCount} (${data.deliveryRatio}%)`;
+  const pickupEl = document.getElementById('kpi-pickupCount');
+  if (pickupEl) pickupEl.textContent = `${data.pickupCount} (${data.pickupRatio}%)`;
   document.getElementById('kpi-totalDeliveryFee').textContent = `$${data.totalDeliveryFee?.toFixed(2) || '0.00'}`;
   document.getElementById('kpi-avgDeliveryFee').textContent = `$${data.avgDeliveryFee?.toFixed(2) || '0.00'}`;
+  const compEl = document.getElementById('kpi-completed');
+  if (compEl) compEl.textContent = data.statusCounts?.['completed'] || 0;
+  const areasEl = document.getElementById('kpi-areasToday');
+  if (areasEl) areasEl.textContent = data.areasServed || '0';
 
   // Delivery vs Pickup 饼图
   renderMethodChart(data.deliveryCount, data.pickupCount);
@@ -202,12 +490,13 @@ function applyDateFilter() {
 
   // 无筛选 → 恢复全部数据
   if (!startVal && !endVal) {
-    if (filterRow) { filterRow.classList.remove('filter-active'); toggleFilterLabel(''); }
+    if (filterRow) { filterRow.classList.remove('filter-active'); toggleFilterLabel('All'); }
     restoreMonthlyView();
     return;
   }
 
   if (filterRow) { filterRow.classList.add('filter-active'); toggleFilterLabel(`Filtered ${startVal} ~ ${endVal}`); }
+  document.getElementById('btnAllToday').textContent = 'All';
 
   // 1) 刷新 KPI 卡片和饼图（summary 接口带日期参数）
   loadSummary(startVal, endVal);
@@ -234,7 +523,8 @@ function restoreMonthlyView() {
   document.getElementById('filterStartDate').value = '';
   document.getElementById('filterEndDate').value = '';
   const filterRow = document.querySelector('.date-filter-row');
-  if (filterRow) { filterRow.classList.remove('filter-active'); toggleFilterLabel(''); }
+  if (filterRow) { filterRow.classList.remove('filter-active'); toggleFilterLabel('All'); }
+  document.getElementById('btnAllToday').textContent = 'Today';
 
   // 恢复全部数据：KPI、Delivery Areas、Products
   loadSummary();
@@ -349,6 +639,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('filterEndDate').value = last.toISOString().slice(0, 10);
     applyDateFilter();
   });
+  document.getElementById('btnAllToday').addEventListener('click', () => {
+    const btn = document.getElementById('btnAllToday');
+    if (btn.textContent === 'All') {
+      // 当前是过滤状态 → 清除过滤，显示全部
+      restoreMonthlyView();
+    } else {
+      // 当前是全部 → 切到今天
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('filterStartDate').value = today;
+      document.getElementById('filterEndDate').value = today;
+      applyDateFilter();
+    }
+  });
 })
 
 // ---- 年份切换 ----
@@ -388,7 +691,7 @@ function buildYearTabs(monthly) {
     document.getElementById('filterStartDate').value = '';
     document.getElementById('filterEndDate').value = '';
     const filterRow = document.querySelector('.date-filter-row');
-    if (filterRow) { filterRow.classList.remove('filter-active'); toggleFilterLabel(''); }
+    if (filterRow) { filterRow.classList.remove('filter-active'); toggleFilterLabel('All'); }
 
     document.getElementById('yearSummary').style.display = currentYear === 'all' ? 'none' : '';
     renderMonthlyChart(allMonthlyData, currentYear);
@@ -398,6 +701,7 @@ function buildYearTabs(monthly) {
 }
 
 function updateYearSummary(monthly, yearFilter) {
+  if (!monthly || !Array.isArray(monthly)) return;
   const el = document.getElementById('yearSummary');
   if (!el) return;
 
@@ -561,6 +865,7 @@ function renderStatusChart(statusCounts) {
   const labelMap = {
     'on-hold': 'On Hold',
     'processing': 'Processing',
+    'fulfilled': 'Fulfilled',
     'completed': 'Completed',
     'shipped': 'Shipped',
     'cancelled': 'Cancelled',
@@ -617,6 +922,7 @@ async function loadDeliveryAreas(startDate, endDate) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const areas = data.areas || [];
+  window.allAreasData = areas;  // AI 可访问全量区域数据
 
   document.getElementById('areas-hint').textContent =
     `Total delivery orders: ${data.totalDeliveryOrders} | Areas served: ${areas.length}`;
@@ -655,7 +961,7 @@ function renderAreasChart(areas) {
 
   // 动态调整高度：每个 suburb 分配 32px
   const wrapper = ctx.canvas.parentElement;
-  wrapper.style.height = Math.max(200, areas.length * 36) + 'px';
+  wrapper.style.height = '560px';
 
   const labels = areas.map(a => a.suburb || 'Unknown');
   const values = areas.map(a => a.orderCount);
@@ -707,6 +1013,7 @@ async function loadProducts(startDate, endDate) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const products = data.products || [];
+  window.allProductsData = products;  // AI 可访问全量产品数据
 
   document.getElementById('products-hint').textContent =
     `Total products sold: ${products.length} | Delivery orders: ${data.totalDeliveryOrders} | Pickup orders: ${data.totalPickupOrders}`;
@@ -1317,47 +1624,33 @@ async function requestAiAnalysis(question) {
   const endVal = document.getElementById('filterEndDate').value;
   const dateRange = (startVal && endVal) ? `${startVal || '...'} ~ ${endVal || '...'}` : 'All';
 
-  // 1) 收集Overview数据（直接从DOM读取当前KPI值）
-  const deliveryText = document.getElementById('kpi-deliveryCount').textContent || '';
-  const pickupText = document.getElementById('kpi-pickupCount').textContent || '';
-  const deliveryMatch = deliveryText.match(/\(([\d.]+)%\)/);
-  const pickupMatch = pickupText.match(/\(([\d.]+)%\)/);
+  // 1) 收集Overview数据（从实际渲染的订单卡片计数）
+  const delCards = document.querySelectorAll('#todayDeliveryList .today-order');
+  const pickCards = document.querySelectorAll('#todayPickupList .today-order');
+  const deliveryCount = delCards.length;
+  const pickupCount = pickCards.length;
+  const totalFromCards = deliveryCount + pickupCount + (document.querySelectorAll('#todayCompletedList .today-order').length || 0);
 
   const overview = {
-    totalOrders: parseInt(document.getElementById('kpi-totalOrders').textContent) || 0,
+    totalOrders: parseInt(document.getElementById('kpi-totalOrders').textContent) || totalFromCards || 0,
     totalRevenue: parseFloat(document.getElementById('kpi-totalRevenue').textContent.replace('$', '')) || 0,
     avgOrderValue: parseFloat(document.getElementById('kpi-avgOrderValue').textContent.replace('$', '')) || 0,
-    deliveryCount: parseInt(deliveryText) || 0,
-    pickupCount: parseInt(pickupText) || 0,
-    deliveryRatio: deliveryMatch ? parseFloat(deliveryMatch[1]) : 0,
-    pickupRatio: pickupMatch ? parseFloat(pickupMatch[1]) : 0,
+    deliveryCount,
+    pickupCount,
+    deliveryRatio: totalFromCards > 0 ? Math.round((deliveryCount / totalFromCards) * 100) : 0,
+    pickupRatio: totalFromCards > 0 ? Math.round((pickupCount / totalFromCards) * 100) : 0,
     totalDeliveryFee: parseFloat(document.getElementById('kpi-totalDeliveryFee').textContent.replace('$', '')) || 0,
   };
 
-  // 2) 收集 topProducts（从表格读取前 5 行）
-  const topProducts = [];
-  const productRows = document.querySelectorAll('#productsBody .prod-row');
-  productRows.forEach((row, i) => {
-    if (i >= 5) return;
-    const cells = row.querySelectorAll('td');
-    const name = cells[3]?.textContent?.trim() || '';
-    const qty = parseInt(cells[4]?.textContent || 0);
-    const revenue = parseFloat(cells[5]?.textContent.replace('$', '')) || 0;
-    const deliveryPct = parseFloat(cells[9]?.querySelector('.delivery-pct-value')?.textContent) || 0;
-    if (name) topProducts.push({ name, totalQty: qty, totalRevenue: revenue, deliveryRatio: deliveryPct });
-  });
+  // 2) 收集 topProducts（从全局全量数据）
+  const topProducts = (window.allProductsData || []).slice(0, 5).map(p => ({
+    name: p.name, totalQty: p.totalQty, totalRevenue: p.totalRevenue, deliveryRatio: p.deliveryRatio
+  }));
 
-  // 3) 收集 topAreas（从表格读取前 5 行）
-  const topAreas = [];
-  const areaRows = document.querySelectorAll('#areasBody tr');
-  areaRows.forEach((row, i) => {
-    if (i >= 5) return;
-    const cells = row.querySelectorAll('td');
-    const suburb = cells[1]?.textContent?.trim() || '';
-    const orders = parseInt(cells[2]?.textContent) || 0;
-    const revenue = parseFloat(cells[3]?.textContent?.replace('$', '')) || 0;
-    if (suburb) topAreas.push({ suburb, orderCount: orders, totalRevenue: revenue });
-  });
+  // 3) 收集 topAreas（从全局全量数据）
+  const topAreas = (window.allAreasData || []).slice(0, 5).map(a => ({
+    suburb: a.suburb, orderCount: a.orderCount, totalRevenue: a.totalRevenue
+  }));
 
   // 3.5) 构建月度趋势摘要（从已缓存的月度数据）
   let monthlyTrend = '';
@@ -1365,7 +1658,7 @@ async function requestAiAnalysis(question) {
   if (monthly && monthly.length > 0) {
     const lines = monthly.map(m => {
       const [y, mo] = m.month.split('-');
-      const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1];
+      const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][parseInt(mo) - 1];
       return `${mon} ${y}: ${m.orderCount} orders, $${m.revenue.toFixed(2)} revenue`;
     });
     monthlyTrend = lines.join('\n');
@@ -1376,7 +1669,8 @@ async function requestAiAnalysis(question) {
   const res = await fetch(`${API_BASE}/api/ai/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ overview, topProducts, topAreas, monthlyTrend, dateRange, question }),
+    body: JSON.stringify({ overview, topProducts, topAreas, monthlyTrend, dateRange, question,
+      model: document.getElementById('aiModelSelect')?.value || '' }),
   });
 
   if (!res.ok) {
@@ -1414,10 +1708,10 @@ function resetChatWelcome() {
       <p>Hello! I'm your data analyst. I can help you understand your sales data.</p>
       <p class="ai-chat-hint">Try asking:</p>
       <div class="ai-quick-options" id="aiQuickOptions">
-        <button class="ai-quick-btn" data-question="What are the key insights from the current data?">📊 Key Insights</button>
-        <button class="ai-quick-btn" data-question="Which products are performing best and which need attention?">🏆 Product Performance</button>
-        <button class="ai-quick-btn" data-question="Analyze delivery areas — which suburbs are strongest and which are under-served?">📍 Delivery Analysis</button>
-        <button class="ai-quick-btn" data-question="Based on the data, what recommendations do you have to grow revenue?">💡 Growth Tips</button>
+        <button class="ai-quick-btn" data-question="How many orders do I need to deal with today?">📋 Today\'s orders</button>
+        <button class="ai-quick-btn" data-question="Which orders today have special notes or urgent requests?">⚠️ Urgent notes</button>
+        <button class="ai-quick-btn" data-question="Where do I need to deliver flowers today? List all addresses.">📍 Today\'s route</button>
+        <button class="ai-quick-btn" data-question="What\'s the most efficient delivery plan for today based on the addresses?">🗺️ Plan route</button>
       </div>
     </div>
   `;
@@ -1477,58 +1771,75 @@ async function sendAiMessage() {
     const endVal = document.getElementById('filterEndDate').value;
     const dateRange = (startVal && endVal) ? `${startVal || '...'} ~ ${endVal || '...'}` : 'All';
 
-    const deliveryText = document.getElementById('kpi-deliveryCount').textContent || '';
-    const pickupText = document.getElementById('kpi-pickupCount').textContent || '';
-    const deliveryMatch = deliveryText.match(/\(([\d.]+)%\)/);
-    const pickupMatch = pickupText.match(/\(([\d.]+)%\)/);
+    const deliveryEl = document.getElementById('kpi-deliveryCount');
+    const pickupEl = document.getElementById('kpi-pickupCount');
+    // 从实际渲染的订单卡片获取准确计数
+    const delCards = document.querySelectorAll('#todayDeliveryList .today-order');
+    const pickCards = document.querySelectorAll('#todayPickupList .today-order');
+    const deliveryCount = delCards.length || parseInt(deliveryEl?.textContent) || 0;
+    const pickupCount = pickCards.length || parseInt(pickupEl?.textContent) || 0;
+    const totalOrders = deliveryCount + pickupCount + (document.querySelectorAll('#todayCompletedList .today-order').length || 0);
 
     const overview = {
-      totalOrders: parseInt(document.getElementById('kpi-totalOrders').textContent) || 0,
+      totalOrders: parseInt(document.getElementById('kpi-totalOrders').textContent) || totalOrders || 0,
       totalRevenue: parseFloat(document.getElementById('kpi-totalRevenue').textContent.replace('$', '')) || 0,
       avgOrderValue: parseFloat(document.getElementById('kpi-avgOrderValue').textContent.replace('$', '')) || 0,
-      deliveryCount: parseInt(deliveryText) || 0,
-      pickupCount: parseInt(pickupText) || 0,
-      deliveryRatio: deliveryMatch ? parseFloat(deliveryMatch[1]) : 0,
-      pickupRatio: pickupMatch ? parseFloat(pickupMatch[1]) : 0,
+      deliveryCount,
+      pickupCount,
+      deliveryRatio: totalOrders > 0 ? Math.round((deliveryCount / totalOrders) * 100) : 0,
+      pickupRatio: totalOrders > 0 ? Math.round((pickupCount / totalOrders) * 100) : 0,
       totalDeliveryFee: parseFloat(document.getElementById('kpi-totalDeliveryFee').textContent.replace('$', '')) || 0,
     };
 
-    const topProducts = [];
-    document.querySelectorAll('#productsBody .prod-row').forEach((row, i) => {
-      if (i >= 5) return;
-      const cells = row.querySelectorAll('td');
-      const name = cells[3]?.textContent?.trim() || '';
-      const qty = parseInt(cells[4]?.textContent || 0);
-      const revenue = parseFloat(cells[5]?.textContent.replace('$', '')) || 0;
-      const deliveryPct = parseFloat(cells[9]?.querySelector('.delivery-pct-value')?.textContent) || 0;
-      if (name) topProducts.push({ name, totalQty: qty, totalRevenue: revenue, deliveryRatio: deliveryPct });
-    });
+    const topProducts = (window.allProductsData || []).slice(0, 5).map(p => ({
+      name: p.name, totalQty: p.totalQty, totalRevenue: p.totalRevenue, deliveryRatio: p.deliveryRatio
+    }));
 
-    const topAreas = [];
-    document.querySelectorAll('#areasBody tr').forEach((row, i) => {
-      if (i >= 5) return;
-      const cells = row.querySelectorAll('td');
-      const suburb = cells[1]?.textContent?.trim() || '';
-      const orders = parseInt(cells[2]?.textContent) || 0;
-      const revenue = parseFloat(cells[3]?.textContent?.replace('$', '')) || 0;
-      if (suburb) topAreas.push({ suburb, orderCount: orders, totalRevenue: revenue });
-    });
+    const topAreas = (window.allAreasData || []).slice(0, 5).map(a => ({
+      suburb: a.suburb, orderCount: a.orderCount, totalRevenue: a.totalRevenue
+    }));
 
     let monthlyTrend = '';
     const monthly = window.allMonthlyData;
     if (monthly && monthly.length > 0) {
       monthlyTrend = monthly.map(m => {
         const [y, mo] = m.month.split('-');
-        const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1];
+        const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][parseInt(mo) - 1];
         return `${mon} ${y}: ${m.orderCount} orders, $${m.revenue.toFixed(2)} revenue`;
       }).join('\n');
+    }
+
+    // 收集今日订单摘要
+    let todaySummary = '';
+    const allOrderCards = document.querySelectorAll('#todayDeliveryList .today-order, #todayPickupList .today-order, #todayCompletedList .today-order');
+    if (allOrderCards.length > 0) {
+      const delCards = document.querySelectorAll('#todayDeliveryList .today-order');
+      const pickCards = document.querySelectorAll('#todayPickupList .today-order');
+      const compCards = document.querySelectorAll('#todayCompletedList .today-order');
+      todaySummary = `Today's orders: ${delCards.length} to deliver, ${pickCards.length} ready for pickup, ${compCards.length} completed.\n\n`;
+      allOrderCards.forEach(el => {
+        const head = el.querySelector('.today-order-head')?.textContent?.replace(/\s+/g, ' ').trim() || '';
+        const body = el.querySelector('.today-order-body')?.textContent?.replace(/\s+/g, ' ').trim() || '';
+        // 提取地址（从 body 中匹配 "地址 | $金额" 格式）
+        const addrMatch = body.match(/(.+?)\s*\|\s*\$[\d.]+/);
+        const address = addrMatch ? addrMatch[1].trim() : '';
+        const notesMatch = body.match(/📋\s*(.+)/);
+        const notes = notesMatch ? notesMatch[1] : '';
+        if (head) {
+          todaySummary += `- ${head}`;
+          if (address) todaySummary += ` | 🏠 ${address}`;
+          if (notes) todaySummary += ` | 📋 ${notes}`;
+          todaySummary += '\n';
+        }
+      });
     }
 
     // SSE streaming fetch
     const res = await fetch(`${API_BASE}/api/ai/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ overview, topProducts, topAreas, monthlyTrend, dateRange, question }),
+      body: JSON.stringify({ overview, topProducts, topAreas, monthlyTrend, todaySummary, dateRange, question, 
+        model: document.getElementById('aiModelSelect')?.value || '' }),
     });
 
     if (!res.ok) {
@@ -1564,7 +1875,8 @@ async function sendAiMessage() {
             fullText += parsed.content;
             // 实时渲染 Markdown
             if (typeof marked !== 'undefined' && marked.parse) {
-              botMsg.innerHTML = marked.parse(fullText);
+              // 避免 ~$xxx 被误解析为删除线
+              botMsg.innerHTML = marked.parse(fullText.replace(/~(\$[\d,.]+)/g, '≈$1'));
             } else {
               botMsg.textContent = fullText;
             }
@@ -1606,7 +1918,7 @@ function appendChatMsg(role, content) {
   if (role === 'bot') {
     // Markdown 渲染
     if (typeof marked !== 'undefined' && marked.parse) {
-      msg.innerHTML = marked.parse(content);
+      msg.innerHTML = marked.parse(content.replace(/~(\$[\d,.]+)/g, '≈$1'));
     } else {
       msg.textContent = content;
     }
@@ -1638,10 +1950,10 @@ function appendFollowUpOptions() {
   row.className = 'ai-followup-row';
 
   const options = [
-    { label: '📊 Any trends worth noting?', q: 'Are there any notable trends or patterns in this data worth highlighting?' },
-    { label: '⚠️ What are the risks?', q: 'Based on the data, what are the potential risks or areas of concern?' },
-    { label: '💡 Growth suggestions', q: 'What specific actions can I take to grow revenue based on this data?' },
-    { label: '🔍 Dive deeper', q: 'Please provide a more detailed breakdown and analysis of the numbers.' },
+    { label: '🖊 Orders with notes?', q: 'Which upcoming orders have special instructions or delivery notes I should pay attention to?' },
+    { label: '🗺️ Best delivery route?', q: 'Based on today\'s delivery addresses, what is the most efficient route?' },
+    { label: '📦 Pickups ready?', q: 'What pickup orders are ready today and what do I need to prepare?' },
+    { label: '📊 Today vs average?', q: 'How does today\'s order volume compare to the daily average?' },
   ];
 
   options.forEach(opt => {

@@ -1,10 +1,4 @@
-/**
- * 婚礼/活动页面（/events）
- *
- * 核心职责：展示婚礼花艺、企业活动的服务介绍
- * - 静态内容页面，含多张配图和详细文字介绍
- * - "Free Quotation"区域提供免费报价入口
- */
+
 
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -38,7 +32,7 @@ function EventPage() {
                             Are you getting hitched?
                             Or you're unsure which flowers to choose for your bouquet?
                             Or for the table centrepieces and the bridesmaid bouquet?
-                            Take help from our wedding florists to create the perfect wedding décor for your wedding.
+                            Take help from our wedding florists to create the perfect wedding d茅cor for your wedding.
                             At Pisces Flower, we have a gorgeous collection of wedding flowers to offer the beautiful & romantic touch that you need on your special day.
                             If you are looking for the highest quality blooms available, crafted individually for you by perfectionist floral designers,
                             then it sounds like we're perfect match!Whether it's roses or lilies, tulips, orchids, dried flowers, preserved flowers,
@@ -85,7 +79,7 @@ function EventPage() {
                             Depending on your style, flower preference & the location of your ceremony,
                             we can offer the wedding decor that beautifies the occasion to another level.
                             Whether it's the aisle or wedding flower bouquet, bridesmaid & bridegroom bouquets,
-                            wedding décor for the whole venue, we put in so much effort, ideas,
+                            wedding d茅cor for the whole venue, we put in so much effort, ideas,
                             and creativity to make your wedding a grand & unique celebration.
                             Whether you have a detailed brief or a just a BIG IDEA,
                             Pisces Flower will take your event from concept to gorgeous reality.
@@ -99,9 +93,9 @@ function EventPage() {
                         As experts in dried flowers & preserved flower arrangements,
                         we can fit into any theme you love.
                         Whether you love a rustic style or a boho-chic or minimalist and prefer including beautiful dried flower arrangements or preserved flowers in the interiors,
-                        we can make it up for you. Is your wedding coming soon? Want to personalise the wedding décor?
+                        we can make it up for you. Is your wedding coming soon? Want to personalise the wedding d茅cor?
                         Talk to our expert wedding florists from Pisces Flower.
-                        For wedding décor consultations, call 0433 XXX XXX today.
+                        For wedding d茅cor consultations, call 0433 XXX XXX today.
                     </p>
                 </div>
 

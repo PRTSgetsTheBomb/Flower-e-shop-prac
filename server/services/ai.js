@@ -7,21 +7,89 @@
 const OpenAI = require('openai');
 const Anthropic = require('@anthropic-ai/sdk');
 
-// ===== 客户端初始化 -----
-const BASE_URL = process.env.AI_BASE_URL || 'https://api.openai.com/v1';
-const MODEL = process.env.AI_MODEL || 'claude-sonnet-5';
-const IS_ANTHROPIC = BASE_URL.includes('anthropic');
+const clients = {};
 
-// 初始化对应客户端
-let openaiClient = null;
-let anthropicClient = null;
+// Claude
+if (process.env.CLAUDE_API_KEY && process.env.CLAUDE_BASE_URL?.includes('anthropic')) {
+    clients.anthropic = new Anthropic({
+        apiKey: process.env.CLAUDE_API_KEY,
+    });
+    console.log('[AI] Provider: Anthropic, model using:', process.env.CLAUDE_MODEL);
+}
 
-if (IS_ANTHROPIC) {
-    anthropicClient = new Anthropic({ apiKey: process.env.AI_API_KEY });
-    console.log('[AI] Provider: Anthropic, model:', MODEL);
-} else {
-    openaiClient = new OpenAI({ apiKey: process.env.AI_API_KEY, baseURL: BASE_URL });
-    console.log('[AI] Provider: OpenAI-compatible, baseURL:', BASE_URL, 'model:', MODEL);
+// DeepSeek（OpenAI 兼容）
+if (process.env.DEEPSEEK_API_KEY) {
+    clients.deepseek = new OpenAI({
+        apiKey: process.env.DEEPSEEK_API_KEY,
+        baseURL: 'https://api.deepseek.com/v1',
+    });
+    console.log('[AI] Provider: DeepSeek, models: Flash=', process.env.DEEPSEEK_FLASH_MODEL, 'Pro=', process.env.DEEPSEEK_PRO_MODEL);
+}
+
+// 默认模型
+const DEFAULT_MODEL = process.env.DEEPSEEK_FLASH_MODEL || 'deepseek-v4-flash';
+
+/**
+ * 根据模型名判断提供商和实际模型名
+ * 支持 "auto" 自动选择模式
+ */
+function resolveProvider(model, question, data) {
+    if (!model || model === 'auto') {
+        return null;
+    }
+    // 手动指定了具体模型 -> 直接解析
+    const m = model.toLowerCase();
+    if (m.startsWith('deepseek-')) return { provider: 'deepseek', model: m };
+    if (m.startsWith('claude-')) return { provider: 'anthropic', model: m };
+    return { provider: 'deepseek', model: m };
+}
+
+/**
+ * 自动选择模型：用轻量 LLM 对用户问题分类，再路由到合适的模型
+ * @param {string} question - 用户问题
+ * @param {object} data - 分析数据（用于判断上下文大小）
+ * @returns {{ provider: string, model: string }}
+ */
+async function autoSelectModel(question, data) {
+    const q = (question || '').trim();
+
+    // 无问题 -> 默认Pro
+    if (!q) return { provider: 'deepseek', model: process.env.DEEPSEEK_PRO_MODEL };
+
+    const qLower = q.toLowerCase();
+
+    // SIMPLE — 纯事实查询：数量、金额、排名、列出、某天的订单
+    const simplePatterns = [
+        /\b(how many|how much|what is|list|show|count|total)\b/,
+        /\b(when|who|which|where)\b/,
+        /\b(top|best|most|least|favorite)\b/,
+        /\b(status|phone|address|email|contact)\b/,
+        /\b(today|yesterday|this week|this month)\b/,
+        /\b(sold|orders?|sales?)\s+(in|on|of|from|for|at)\b/,
+        /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/,
+    ];
+    const isSimple = simplePatterns.some(p => p.test(qLower)) && q.length < 120;
+
+    // COMPLEX — 深度推理
+    const complexPatterns = [
+        /\b(why|reason|cause)\b/,
+        /\b(recommend|suggest|advice|strategy|improve)\b/,
+        /\b(predict|forecast|expect|will|going to)\b/,
+        /\b(what if|scenario|if we)\b/,
+    ];
+    const isComplex = complexPatterns.some(p => p.test(qLower));
+
+    if (isComplex) {
+        console.log('[AI] Auto-select: COMPLEX -> Pro');
+        return { provider: 'deepseek', model: process.env.DEEPSEEK_PRO_MODEL };
+    }
+    if (isSimple) {
+        console.log('[AI] Auto-select: SIMPLE -> Flash');
+        return { provider: 'deepseek', model: process.env.DEEPSEEK_FLASH_MODEL };
+    }
+    // 其余（MODERATE：趋势、对比、分析） -> Claude
+    console.log('[AI] Auto-select: MODERATE -> Claude');
+    return { provider: 'anthropic', model: process.env.CLAUDE_MODEL || 'claude-sonnet-5' };
 }
 
 // ----- 简易内存缓存 -----
@@ -57,7 +125,7 @@ function setCached(key, value) {
  * @returns {string} 结构化文本摘要
  */
 function buildContext(data) {
-    const { overview, topProducts, topAreas, monthlyTrend, dateRange } = data;
+    const { overview, topProducts, topAreas, monthlyTrend, todaySummary, dateRange, historyOrders } = data;
 
     let ctx = '';
 
@@ -69,6 +137,11 @@ function buildContext(data) {
     // 月度趋势（紧跟日期，让AI最先看到时间维度）
     if (monthlyTrend && monthlyTrend.length > 0) {
         ctx += `[Monthly Breakdown — orders & revenue by month]\n${monthlyTrend}\n\n`;
+    }
+
+    // 今日待处理订单
+    if (todaySummary && todaySummary.length > 0) {
+        ctx += `[Today's Pending Orders]\n${todaySummary}\n\n`;
     }
 
     // 总览API
@@ -105,6 +178,37 @@ function buildContext(data) {
         ctx += '\n';
     }
 
+    // 完整历史订单（摘要格式，控制 token）
+    if (historyOrders && historyOrders.length > 0) {
+        const totalHistory = historyOrders.length;
+        const completedOrders = historyOrders.filter(o => o.status === 'completed').length;
+        const cancelledOrders = historyOrders.filter(o => o.status === 'cancelled').length;
+        const deliveryOrders = historyOrders.filter(o => o.delivery === 'Delivery').length;
+        const pickupOrders = historyOrders.filter(o => o.delivery === 'Pickup').length;
+
+        // 回头客统计
+        const customerCounts = {};
+        historyOrders.forEach(o => {
+            if (o.customer && o.customer !== 'Unknown') {
+                customerCounts[o.customer] = (customerCounts[o.customer] || 0) + 1;
+            }
+        });
+        const repeatCustomers = Object.entries(customerCounts)
+            .filter(([, count]) => count > 1)
+            .sort(([, a], [, b]) => b - a);
+
+        ctx += `[Full Order History — ${totalHistory} total orders]\n`;
+        ctx += `- Completed: ${completedOrders}, Cancelled: ${cancelledOrders}\n`;
+        ctx += `- Delivery: ${deliveryOrders}, Pickup: ${pickupOrders}\n`;
+
+        if (repeatCustomers.length > 0) {
+            ctx += `- Top repeat customers: `;
+            ctx += repeatCustomers.slice(0, 5).map(([name, count]) => `${name} (${count} orders)`).join(', ');
+            ctx += '\n';
+        }
+        ctx += '\n';
+    }
+
     return ctx;
 }
 
@@ -116,8 +220,9 @@ Guidelines:
 - Answer the user's specific question directly and concisely. Do NOT output all sections unless the question is broad (e.g. "analyze everything" / "give me a full report").
 - Use Markdown formatting for readability (headings, lists, bold).
 - Only mention data that actually exists in the provided context. Do not fabricate.
-- If the data is insufficient to answer the question, say so honestly.
-- All amounts are in Australian dollars (AUD).`;
+- If the data is insufficient to answer the question, say so honestly.- For questions about totals, rankings, or "most/best/which", refer to the aggregated summary data (Overview, Products Top, Areas Top) rather than counting individual orders. The summary data is pre-computed and authoritative.- All amounts are in Australian dollars (AUD).
+- When answering questions about totals or rankings, aggregate across ALL orders in the Full Order History, not just the recent ones.
+`;
 
 // ----- 核心API -----
 /**
@@ -127,13 +232,15 @@ Guidelines:
  * @returns {Promise<string>} AI 分析文本（Markdown）
  */
 
-async function analyzeSales(data, question) {
+async function analyzeSales(data, question, model) {
+    const { provider, model: actualModel } = resolveProvider(model);
+    console.log(`[AI] >>> Request — model: ${actualModel}, provider: ${provider}, question: "${(question || '').slice(0, 60)}"`);
+
     const context = buildContext(data);
     const userMessage = question
         ? `Here is the sales data:\n\n${context}\n\nQuestion: ${question}\n\nAnswer concisely based on the data above.`
         : `Here is the sales data:\n\n${context}\n\nGive a concise analysis covering key insights, top products, delivery areas, and recommendations. Use Markdown headings.`;
 
-    // 生成缓存key
     const dataHash = Buffer.from(context).toString('base64').slice(0, 40);
     const cacheKey = getCacheKey(dataHash, question || '__full__');
     const cached = getCached(cacheKey);
@@ -142,12 +249,15 @@ async function analyzeSales(data, question) {
         return cached;
     }
 
+    const client = clients[provider];
+    if (!client) throw new Error(`AI provider "${provider}" not configured.`);
+
     try {
         let result;
 
-        if (IS_ANTHROPIC) {
-            const response = await anthropicClient.messages.create({
-                model: MODEL,
+        if (provider === 'anthropic') {
+            const response = await client.messages.create({
+                model: actualModel,
                 system: SYSTEM_PROMPT,
                 messages: [{ role: 'user', content: userMessage }],
                 max_tokens: 5000,
@@ -155,8 +265,8 @@ async function analyzeSales(data, question) {
             result = response.content[0]?.text || 'AI assistant failed to generate the result.';
             console.log(`[AI] Analysis complete, tokens: input=${response.usage?.input_tokens} output=${response.usage?.output_tokens}`);
         } else {
-            const response = await openaiClient.chat.completions.create({
-                model: MODEL,
+            const response = await client.chat.completions.create({
+                model: actualModel,
                 messages: [
                     { role: 'system', content: SYSTEM_PROMPT },
                     { role: 'user', content: userMessage },
@@ -168,13 +278,12 @@ async function analyzeSales(data, question) {
             console.log(`[AI] Analysis complete, tokens used: ${response.usage?.total_tokens}`);
         }
 
-        // 写入缓存
         setCached(cacheKey, result);
         return result;
     }
     catch (err) {
         console.error('[AI] LLM call failed:', err.message);
-        throw new Error(`AI 分析服务暂时不可用：${err.message}`);
+        throw new Error(`AI Analysis is not available for now: ${err.message}`);
     }
 }
 
@@ -191,15 +300,25 @@ function clearCache() {
  * @param {string} [question]
  * @param {function} onChunk - 每收到一段文本时回调
  */
-async function streamAnalysis(data, question, onChunk) {
+async function streamAnalysis(data, question, model, onChunk) {
+    let providerInfo = resolveProvider(model, question, data);
+    if (!providerInfo) {
+        providerInfo = await autoSelectModel(question, data);
+    }
+    const { provider, model: actualModel } = providerInfo;
+    console.log(`[AI] >>> Request — model: ${actualModel}, provider: ${provider}, question: "${(question || '').slice(0, 60)}"`);
+
     const context = buildContext(data);
     const userMessage = question
         ? `Here is the sales data:\n\n${context}\n\nQuestion: ${question}\n\nAnswer concisely based on the data above.`
         : `Here is the sales data:\n\n${context}\n\nGive a concise analysis covering key insights, top products, delivery areas, and recommendations. Use Markdown headings.`;
 
-    if (IS_ANTHROPIC) {
-        const stream = await anthropicClient.messages.stream({
-            model: MODEL,
+    const client = clients[provider];
+    if (!client) throw new Error(`AI provider "${provider}" not configured.`);
+
+    if (provider === 'anthropic') {
+        const stream = await client.messages.stream({
+            model: actualModel,
             system: SYSTEM_PROMPT,
             messages: [{ role: 'user', content: userMessage }],
             max_tokens: 5000,
@@ -210,8 +329,8 @@ async function streamAnalysis(data, question, onChunk) {
             }
         }
     } else {
-        const stream = await openaiClient.chat.completions.create({
-            model: MODEL,
+        const stream = await client.chat.completions.create({
+            model: actualModel,
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
                 { role: 'user', content: userMessage },

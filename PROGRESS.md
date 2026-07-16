@@ -83,16 +83,28 @@
 ~~1. Product Analysis信息补全：单价，配送费（按地区），Product行可以展开~~
 ~~2. 尽可能整合到一个Page上~~
 ~~3. 字体选择~~
-1. 加一个today选项（默认），并显示需要配送/准备自提的订单，可以读取gift message/notes --->在前端也加上
-2. 截单日期
-3. 不同AI模型结合，根据不同问题选择不同模型
-4. 修改默认问题选择：跟今天的订单有关的问题
+~~1. 加一个today选项（默认），并显示需要配送/准备自提的订单，可以读取gift message/notes --->在前端也加上~~
+~~2. 截单日期~~
+1. 不同AI模型结合，根据不同问题选择不同模型 -> 当前已实现：硬编码分类
+~~4. DashBoard可以修改状态（主要Pickup）（要么不加，要么可以修改）~~
+~~    4.1 Hold on不应该被时间筛选~~
+~~5. 排版优化（空白太多，重要信息放大，次要信息缩小）~~
+~~6. Pickup加上电话号和订单号~~
+~~7. 相同的区聚类~~
+~~8. 取消订单功能~~
+2. 退货/退款功能
+3. dashboard登录认证
+4. test脚本
+5. index.js拆分，方便维护
+~~10. Product Detail界面：允许用户在此输入郊区名并验证~~
+~~8. Today KPI卡片可以多分几个（To where, delivery, completed等）~~
+~~4. 修改默认问题选择：跟今天的订单有关的问题~~
 
 ### 商家端
 | 事项 | 说明 |
 |------|------|
 | 后端聚合 API | 三个端点：`/api/analytics/summary`、`/api/analytics/delivery-areas`、`/api/analytics/products` |
-| DashBoard | 添加时间选项
+~~| DashBoard | 添加时间选项~~
 
 |运费| 计算到不同地区的运费
 // Orders界面：分类Shipped/Pickup/Delivered/PickedUp
@@ -100,7 +112,6 @@
 // 后续尝试（不用急）：用AI帮助店主分析数据，给店主提供数据报告
 
 ## 优化建议
-| ProductDetail界面 | 告诉用户哪些花支持配送，哪些花仅支持自提                             |
 |           | 可以尝试使用React Query / Tanstack Query                 | 
 | 分类后描述 | 在商品列表之后添加更多描述、吸引阅读                       |
 | 字体美化   | 使用适当字体提升阅读体验                                  |

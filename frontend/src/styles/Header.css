@@ -6,8 +6,8 @@
  * z-index: 100 确保覆盖其他内容
  */
 .site-header {
-  background: #fff;
-  /* border-bottom removed */
+  background: var(--color-white);
+  box-shadow: var(--shadow-sm);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -167,10 +167,10 @@
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  background: #fff;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   min-width: 150px;
   padding: 8px 0;
   z-index: 10;
@@ -327,9 +327,6 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  position: sticky;
-  top: 0;
-  z-index: 101;
 }
 
 .delivery-banner-text {

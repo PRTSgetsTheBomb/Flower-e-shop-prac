@@ -223,16 +223,23 @@
 /* -- 推荐商品区域 -- */
 .cart-recommended {
   margin-top: 60px;
-  padding-top: 40px;
-  border-top: 1px solid #eee;
+  padding-top: 48px;
+  border-top: 1px solid var(--color-border, #e8e8e8);
+  background: linear-gradient(to bottom, var(--color-bg-warm, #fdf6f8), transparent 60px);
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: max(20px, calc((100vw - var(--max-width, 1200px)) / 2));
+  padding-right: max(20px, calc((100vw - var(--max-width, 1200px)) / 2));
+  padding-bottom: 60px;
 }
 
 .cart-rec-title {
   font-size: 1.3em;
-  font-weight: 700;
-  color: #222;
+  font-weight: 600;
+  color: var(--color-text, #2d2d2d);
   text-align: center;
   margin-bottom: 28px;
+  letter-spacing: -0.01em;
 }
 
 /* ===== 响应式 ===== */

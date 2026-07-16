@@ -1,62 +1,19 @@
 /**
- * 商品详情页（/product/:slug�?
+ * Product Detail Page (/product/:slug)
  *
- * 核心职责：展示单个商品的详细信息，支持加入购物车
- *
- * 设计说明�?
- *
- * 1. 【useParams 获取路由参数�?
- *    :slug �?URL 中的动态段，如 /product/alstromeria 中的 alstromeria（花名）�?
- *    当用户从首页或分类页点击商品卡片时，URL 变化触发组件重新渲染�?
- *    useEffect 检测到 slug 变化后重新请求数据�?
- *
- * 2. 【三态渲染模式�?
- *    - loading: 显示 Loading 组件（数据请求中�?
- *    - !product: 显示 "Product not found"（API 返回空）
- *    - product: 显示完整的商品详�?
- *    这种模式适用于所�?请求外部数据"的页面，�?React 常用模式�?
- *
- * 3. 【多�?useState 管理不同维度�?
- *    每个独立的状态用单独�?useState，而不是合并成一个对象：
- *    - product: 商品数据
- *    - loading: 加载状�?
- *    - added: 加入购物车的反馈状态（显示 "Added �? 2 秒）
- *    - qty: 购买数量
- *    - deliveryDate: 配送日�?
- *    - giftMessage: 礼品留言
- *    分开管理的好处：更新其中一个不会影响其他，代码更清晰�?
- *
- * 4. 【dangerouslySetInnerHTML�?
- *    商品描述（short_description / description）来�?WooCommerce API�?
- *    内容�?HTML 格式（含 <p>�?ul> 等标签）。React 默认转义 HTML�?
- *    需要用 dangerouslySetInnerHTML 来渲染。这个属性名中的 "dangerously"
- *    �?React 的警示：确保内容来源可靠，否则可能被 XSS 攻击�?
- *    这里的数据来自自己的电商后台，风险可控�?
- *
- * 5. 【加入购物车反馈�?
- *    handleAdd 调用 addToCart 后设�?added=true�?
- *    按钮文字变为 "Added �?�? 秒后自动恢复�?
- *    这是一种常见的"即时反馈"模式，让用户知道操作已生效�?
- *
- * 6. 【日期选择限制与校验�?
- *    min={today} 禁止用户选择今天之前的日期�?
- *    today 通过 new Date().toISOString().split('T')[0] 获取当前日期�?
- *    handleAdd 中校�?deliveryDate 是否已填，未填时显示红色错误提示�?
- *    阻止加入购物车。用户选择日期后错误自动清除�?
- *
- * 7. 【字符计数�?
- *    {giftMessage.length}/200 实时显示已输入字符数�?
- *    maxLength={200} 限制最大输入长度�?
+ * Displays a single product with full details, quantity selector,
+ * delivery/pickup options, date picker, gift message, and special instructions.
+ * Supports adding to cart with instant feedback.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import FadeInUp from '../common/FadeInUp';
 import ImageLightbox from './ImageLightbox';
 import ProductReviews from './ProductReviews';
 import { fetchProductBySlug, fetchAllProducts } from '../../api/products';
 import { useCart } from '../../context/CartContext';
-import deliveryAreas from '../common/Areas';
+import deliveryAreas, { getShippingBySuburb, getShippingBySuburbAsync } from '../common/Areas';
 import Loading from '../common/Loading';
 import ProductCard from '../common/ProductCard';
 import '../../styles/ProductDetail.css';
@@ -80,7 +37,40 @@ function ProductDetail() {
     });
     const [deliveryDate, setDeliveryDate] = useState('');
     const [giftMessage, setGiftMessage] = useState('');
+    const [deliveryNote, setDeliveryNote] = useState('');
     const [dateError, setDateError] = useState('');
+
+    // 郊区选择模式：select（下拉）| custom（手动输入）
+    const [suburbMode, setSuburbMode] = useState(() => {
+        const saved = (() => { try { return localStorage.getItem('checkout_suburb') || ''; } catch { return ''; } })();
+        return saved && !deliveryAreas.some(a => a.name === saved) ? 'custom' : 'select';
+    });
+    const [suburbInput, setSuburbInput] = useState(() => {
+        try { return localStorage.getItem('checkout_suburb') || ''; }
+        catch { return ''; }
+    });
+    const [suburbResult, setSuburbResult] = useState(null); // { valid, name, fee, distance } | 'loading'
+    const suburbTimerRef = useRef(null);
+
+    // 防抖查询郊区（500ms 无输入后触发）
+    useEffect(() => {
+        if (suburbMode !== 'custom') return;
+        const trimmed = suburbInput.trim();
+        if (!trimmed) { setSuburbResult(null); return; }
+        if (suburbTimerRef.current) clearTimeout(suburbTimerRef.current);
+        suburbTimerRef.current = setTimeout(async () => {
+            setSuburbResult('loading');
+            const result = await getShippingBySuburbAsync(trimmed);
+            if (result.fee !== null) {
+                setSuburbResult({ valid: true, name: trimmed, fee: result.fee, distance: result.distance });
+                setSelectedSuburb(trimmed);
+                try { localStorage.setItem('checkout_suburb', trimmed); } catch { }
+            } else {
+                setSuburbResult({ valid: false, name: trimmed });
+            }
+        }, 500);
+        return () => { if (suburbTimerRef.current) clearTimeout(suburbTimerRef.current); };
+    }, [suburbInput, suburbMode]);
 
     useEffect(() => {
         setLoading(true);
@@ -88,7 +78,7 @@ function ProductDetail() {
         fetchProductBySlug(slug)
             .then((p) => {
                 setProduct(p);
-                // 加载推荐商品（排除当前商品，�?4 个）
+                // 加载推荐商品（排除当前商品，取 4 个）
                 if (p) {
                     fetchAllProducts(8).then((all) =>
                         setRecommended(all.filter((item) => item.id !== p.id).slice(0, 4))
@@ -109,14 +99,15 @@ function ProductDetail() {
     );
 
     const handleAdd = () => {
-        // 校验：配�?自取日期为必�?
+        // 校验：配送/自取日期为必填
         if (!deliveryDate) {
             setDateError(`Please select a ${deliveryMethod} date.`);
             return;
         }
         setDateError('');
-        addToCart({ ...product, qty, deliveryMethod, deliveryDate, giftMessage });
+        addToCart({ ...product, qty, deliveryMethod, deliveryDate, giftMessage, deliveryNote });
         setAdded(true);
+        setTimeout(() => setAdded(false), 2000);
     };
 
     const now = new Date();
@@ -178,7 +169,7 @@ function ProductDetail() {
                                         className={`method-btn${deliveryMethod === 'pickup' ? ' active' : ''}`}
                                         onClick={() => {
                                             setDeliveryMethod('pickup');
-                                            // 切换方式后重新校验日�?
+                                            // 切换方式后重新校验日期
                                             const newMin = new Date();
                                             newMin.setDate(newMin.getDate() + 1);
                                             const newMinStr = newMin.toISOString().split('T')[0];
@@ -192,7 +183,7 @@ function ProductDetail() {
                                         className={`method-btn${deliveryMethod === 'delivery' ? ' active' : ''}`}
                                         onClick={() => {
                                             setDeliveryMethod('delivery');
-                                            // 切换方式后重新校验日�?
+                                            // 切换方式后重新校验日期
                                             const newMin = new Date();
                                             if (newMin.getHours() >= 13) newMin.setDate(newMin.getDate() + 1);
                                             const newMinStr = newMin.toISOString().split('T')[0];
@@ -207,7 +198,7 @@ function ProductDetail() {
                             <div className="detail-field">
                                 <label>Quantity</label>
                                 <div className="qty-selector">
-                                    <button onClick={() => setQty(Math.max(1, qty - 1))}></button>
+                                    <button onClick={() => setQty(Math.max(1, qty - 1))}>-</button>
                                     <span>{qty}</span>
                                     <button onClick={() => setQty(qty + 1)}>+</button>
                                 </div>
@@ -219,20 +210,68 @@ function ProductDetail() {
                                     <p className="delivery-hint">
                                         We only deliver to selected Melbourne suburbs.
                                     </p>
-                                    <select
-                                        className="suburb-select"
-                                        value={selectedSuburb}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setSelectedSuburb(val);
-                                            try { localStorage.setItem('checkout_suburb', val); } catch { }
-                                        }}
-                                    >
-                                        <option value="">Select your suburb...</option>
-                                        {deliveryAreas.map((area) => (
-                                            <option key={area.name} value={area.name}>{area.name}</option>
-                                        ))}
-                                    </select>
+
+                                    {suburbMode === 'select' ? (
+                                        <>
+                                            <select
+                                                className="suburb-select"
+                                                value={selectedSuburb}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setSelectedSuburb(val);
+                                                    setSuburbInput(val);
+                                                    try { localStorage.setItem('checkout_suburb', val); } catch { }
+                                                }}
+                                            >
+                                                <option value="">Select your suburb...</option>
+                                                {deliveryAreas.map((area) => (
+                                                    <option key={area.name} value={area.name}>{area.name}</option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                className="suburb-mode-toggle"
+                                                onClick={() => setSuburbMode('custom')}
+                                            >
+                                                Or enter manually
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div className="suburb-input-wrap">
+                                            <input
+                                                type="text"
+                                                className="suburb-text-input"
+                                                placeholder="Type your suburb name..."
+                                                value={suburbInput}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setSuburbInput(val);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        e.target.blur();
+                                                    }
+                                                }}
+                                            />
+                                            {suburbResult === 'loading' && (
+                                                <span className="suburb-checking">⏳ Checking delivery availability...</span>
+                                            )}
+                                            {suburbResult && suburbResult !== 'loading' && suburbResult.valid && (
+                                                <span className="suburb-valid">✓ Delivers to {suburbResult.name} — ${suburbResult.fee.toFixed(2)} ({suburbResult.distance}km)</span>
+                                            )}
+                                            {suburbResult && suburbResult !== 'loading' && !suburbResult.valid && (
+                                                <span className="suburb-invalid">✗ Not in delivery area — consider Pickup</span>
+                                            )}
+                                            <button
+                                                type="button"
+                                                className="suburb-mode-toggle"
+                                                onClick={() => { setSuburbMode('select'); setSuburbResult(null); }}
+                                            >
+                                                Back to list
+                                            </button>
+                                        </div>
+                                    )}
                                     <p className="delivery-hint">
                                         We recommend you pick up your order from our store to have a better experience and product quality.
                                     </p>
@@ -243,12 +282,21 @@ function ProductDetail() {
                                 <label>{deliveryMethod === 'delivery' ? 'Delivery Date' : 'Pickup Date'} *</label>
                                 <input type="date" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setDateError(''); }} min={minDateStr} required />
                                 {dateError && <span className="field-error">{dateError}</span>}
+                                <p className="delivery-hint">
+                                    The final delivery / pickup date can be delayed for any reason, we will try our best to deliver your order on time.
+                                </p>
                             </div>
 
                             <div className="detail-field">
                                 <label>Gift Message (optional)</label>
                                 <textarea rows={3} value={giftMessage} onChange={(e) => setGiftMessage(e.target.value)} placeholder="Write a personal message..." maxLength={200} />
                                 <span className="field-hint">{giftMessage.length}/200</span>
+                            </div>
+
+                            <div className="detail-field">
+                                <label>Special Instructions (optional)</label>
+                                <textarea rows={2} value={deliveryNote} onChange={(e) => setDeliveryNote(e.target.value)} placeholder="E.g. Urgent delivery, leave at reception, call before arriving..." maxLength={150} />
+                                <span className="field-hint">{deliveryNote.length}/150</span>
                             </div>
                         </div>
 

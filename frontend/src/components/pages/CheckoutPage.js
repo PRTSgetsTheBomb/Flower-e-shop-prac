@@ -1,15 +1,15 @@
 /**
- * 结算页面�?checkout�?
+ * 结算页面�?checkout�?
  *
  * 核心职责：收集配送信息并生成订单
  *
- * 设计说明�?
- * - 三态渲染：空购物车 �?订单表单 �?下单成功
- * - 表单状态用一个对象管理（form），通过 handleChange 统一更新�?
- *   比每个字段单独写 useState 更简�?
+ * 设计说明�?
+ * - 三态渲染：空购物车 �?订单表单 �?下单成功
+ * - 表单状态用一个对象管理（form），通过 handleChange 统一更新�?
+ *   比每个字段单独写 useState 更简�?
  * - 调用 addOrder() 将订单保存到 localStorage，然后清空购物车
- * - setTimeout 模拟后端请求延迟�?秒），展�?submitting 状�?
- * - 右侧订单摘要实时同步购物车数�?
+ * - setTimeout 模拟后端请求延迟�?秒），展�?submitting 状�?
+ * - 右侧订单摘要实时同步购物车数�?
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -34,14 +34,13 @@ function CheckoutPage() {
     const { cart, totalPrice, clearCart } = useCart();
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [placed, setPlaced] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [phoneError, setPhoneError] = useState('');
     const [cardError, setCardError] = useState('');
     const [suburbError, setSuburbError] = useState('');
     const stripeRef = useRef(null);    // 保存 stripe 实例
 
-    // ---- 郊区选择模式与运费计�?----
+    // ---- 郊区选择模式与运费计�?----
     const [suburbMode, setSuburbMode] = useState('select');    // 'select' | 'custom'
     const [customSuburb, setCustomSuburb] = useState('');
     const [shippingCalc, setShippingCalc] = useState({ fee: null, distance: null, known: false, loading: false });
@@ -61,8 +60,8 @@ function CheckoutPage() {
         };
     });
 
-    // �?suburb 变化时重新计算运费（已知郊区即时、未�?via API�?
-    // 注意�?000ms 防抖避免突破 Nominatim 1�?�?限流；ignore 标记清理竞�?
+    // �?suburb 变化时重新计算运费（已知郊区即时、未�?via API�?
+    // 注意�?000ms 防抖避免突破 Nominatim 1�?�?限流；ignore 标记清理竞�?
     const shippingRequestedRef = useRef(false);
     useEffect(() => {
         let ignore = false;
@@ -72,13 +71,13 @@ function CheckoutPage() {
                 if (!ignore) setShippingCalc({ fee: null, distance: null, known: false, loading: false });
                 return;
             }
-            // 已知郊区 �?同步，即时响�?
+            // 已知郊区 �?同步，即时响�?
             const sync = getShippingBySuburb(name);
             if (sync.fee !== null || sync.distance !== null) {
                 if (!ignore) setShippingCalc({ ...sync, known: true, loading: false });
                 return;
             }
-            // 未知郊区 �?异步 Nominatim API 兜底
+            // 未知郊区 �?异步 Nominatim API 兜底
             if (shippingRequestedRef.current) return; // 已有请求在途中，不再重复发
             if (!ignore) setShippingCalc((prev) => ({ ...prev, loading: true }));
             shippingRequestedRef.current = true;
@@ -99,11 +98,11 @@ function CheckoutPage() {
             setSuburbMode('custom');
             setCustomSuburb(form.suburb);
         }
-        // 只在组件挂载时运行一�?
+        // 只在组件挂载时运行一�?
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // 计算运费（从 shippingCalc 状态获得，支持同步/异步两种来源�?
+    // 计算运费（从 shippingCalc 状态获得，支持同步/异步两种来源�?
     const hasDelivery = cart.some(item => item.deliveryMethod !== 'pickup');
     const deliverySubtotal = cart
         .filter(item => item.deliveryMethod !== 'pickup')
@@ -122,7 +121,7 @@ function CheckoutPage() {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm({ ...form, [name]: value });
-        // 手机号验�?
+        // 手机号验�?
         if (name === 'phone') {
             if (value && !validatePhone(value)) {
                 setPhoneError('Please enter a valid Australian phone number (e.g. 0412 345 678).');
@@ -130,7 +129,7 @@ function CheckoutPage() {
                 setPhoneError('');
             }
         }
-        // Suburb 同步�?localStorage
+        // Suburb 同步�?localStorage
         if (name === 'suburb') {
             try { localStorage.setItem('checkout_suburb', value); } catch { }
         }
@@ -142,7 +141,7 @@ function CheckoutPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        //手机号最终验�?
+        //手机号最终验�?
         if (!validatePhone(form.phone)) {
             setPhoneError('Please enter a valid Australian phone number (e.g. 0412 345 678).');
             setSubmitting(false);
@@ -157,7 +156,7 @@ function CheckoutPage() {
                 setSubmitting(false);
                 return;
             }
-            // 还要确认运费有效（即配送范围内�?
+            // 还要确认运费有效（即配送范围内�?
             if (shippingFee === null && !shippingCalc.loading) {
                 setSuburbError('Sorry, we currently do not deliver to this area.');
                 setSubmitting(false);
@@ -185,7 +184,7 @@ function CheckoutPage() {
             return;
         }
 
-        // 2. 先创�?PaymentMethod 获取卡信�?
+        // 2. 先创�?PaymentMethod 获取卡信�?
         const { stripe, elements } = stripeRef.current || {};
         let paymentMethodId;
         let cardInfo = null;
@@ -224,13 +223,14 @@ function CheckoutPage() {
             console.log('[Stripe] Payment succeeded:', paymentIntent.id);
         }
 
-        // 4. 支付成功 �?保存订单 & 同步�?WooCommerce
+        // 4. 支付成功 �?保存订单 & 同步�?WooCommerce
         const email = user?.email || form.email;
+        const finalSuburb = suburbMode === 'custom' ? customSuburb : form.suburb;
         const order = addOrder(email, cart, total, {
             firstName: form.firstName,
             lastName: form.lastName,
             address: form.address,
-            suburb: form.suburb,
+            suburb: finalSuburb,
             postcode: form.postcode,
             phone: form.phone,
             shipping,
@@ -238,7 +238,7 @@ function CheckoutPage() {
             paymentMethod: cardInfo,
         });
 
-        // 同步订单�?WooCommerce 后端（不阻塞跳转�?
+        // 同步订单�?WooCommerce 后端（不阻塞跳转�?
         const token = localStorage.getItem('jwt_token');
         fetch('http://localhost:5000/api/create-order', {
             method: 'POST',
@@ -246,7 +246,7 @@ function CheckoutPage() {
             body: JSON.stringify({
                 items: cart,
                 customer: { firstName: form.firstName, lastName: form.lastName, email },
-                shipping: { address: form.address, suburb: form.suburb, postcode: form.postcode, phone: form.phone },
+                shipping: { address: form.address, suburb: finalSuburb, postcode: form.postcode, phone: form.phone },
                 paymentMethod: cardInfo?.brand || 'Card',
                 token,
             }),
@@ -263,11 +263,11 @@ function CheckoutPage() {
         });
 
         clearCart();
-        navigate(`/order/${order.id}`);
         setSubmitting(false);
+        navigate(`/order/${order.id}`);
     };
 
-    if (cart.length === 0 && !placed) {
+    if (cart.length === 0) {
         return (
             <FadeInUp as="section" className="checkout-page">
                 <div className="container">
@@ -281,27 +281,13 @@ function CheckoutPage() {
         );
     }
 
-    if (placed) {
-        return (
-            <FadeInUp as="section" className="checkout-page">
-                <div className="container">
-                    <div className="checkout-success">
-                        <h1>Order Placed!</h1>
-                        <p>Thank you for your order. You will receive a confirmation information shortly through email and message.</p>
-                        <Link to="/" className="event-btn">Back to Home</Link>
-                    </div>
-                </div>
-            </FadeInUp>
-        );
-    }
-
     return (
         <FadeInUp as="section" className="checkout-page">
             <div className="container">
                 <h1 className="checkout-title">Checkout</h1>
                 <Elements stripe={stripePromise}>
                     <form className="checkout-layout" onSubmit={handleSubmit}>
-                        {/* 左侧：表�?*/}
+                        {/* 左侧：表�?*/}
                         <div className="checkout-form">
                             <div className="form-section">
                                 <h2>Contact</h2>
@@ -387,7 +373,7 @@ function CheckoutPage() {
                                                 <option value="" disabled>Select a saved address...</option>
                                                 {user.addresses.map(addr => (
                                                     <option key={addr.id} value={addr.id}>
-                                                        {addr.label || 'Address'} �?{addr.street}, {addr.suburb} {addr.postcode}
+                                                        {addr.label || 'Address'} �?{addr.street}, {addr.suburb} {addr.postcode}
                                                     </option>
                                                 ))}
                                             </select>
@@ -463,7 +449,7 @@ function CheckoutPage() {
                             )}
                         </div>
 
-                        {/* 右侧：订单摘�?*/}
+                        {/* 右侧：订单摘�?*/}
                         <div className="checkout-summary">
                             <h2>Order Summary</h2>
                             {cart.map((item) => (
@@ -522,7 +508,7 @@ function CheckoutPage() {
                                 <span>${total.toFixed(2)}</span>
                             </div>
 
-                            {/* 信用卡支�?*/}
+                            {/* 信用卡支�?*/}
                             <StripePayment onStripeReady={onStripeReady} />
                             {cardError && <p className="stripe-error">{cardError}</p>}
 

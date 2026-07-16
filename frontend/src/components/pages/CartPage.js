@@ -82,7 +82,7 @@ function CartPage() {
         {/* 商品列表 */}
         <div className="cart-items">
           {cart.map((item) => (
-            <div key={item.id} className="cart-item">
+            <div key={item.cartKey} className="cart-item">
               {/* 商品图片（可选） */}
               {item.image && <img src={item.image} alt={item.name} className="cart-item-image" />}
 
@@ -104,7 +104,7 @@ function CartPage() {
                         else if (d.getHours() >= 13) d.setDate(d.getDate() + 1);
                         return d.toISOString().split('T')[0];
                       })()}
-                      onChange={(e) => updateDeliveryDate(item.id, e.target.value)}
+                      onChange={(e) => updateDeliveryDate(item.cartKey, e.target.value)}
                     />
                   </p>
                 )}
@@ -112,13 +112,13 @@ function CartPage() {
                 <div className="cart-item-method">
                   <button
                     className={`method-btn${item.deliveryMethod === 'pickup' ? ' active' : ''}`}
-                    onClick={() => updateDeliveryMethod(item.id, 'pickup')}
+                    onClick={() => updateDeliveryMethod(item.cartKey, 'pickup')}
                   >
                     Pickup
                   </button>
                   <button
                     className={`method-btn${item.deliveryMethod !== 'pickup' ? ' active' : ''}`}
-                    onClick={() => updateDeliveryMethod(item.id, 'delivery')}
+                    onClick={() => updateDeliveryMethod(item.cartKey, 'delivery')}
                   >
                     Delivery
                   </button>
@@ -127,16 +127,16 @@ function CartPage() {
 
               {/* 数量选择器：减号 / 数字 / 加号 */}
               <div className="cart-item-qty">
-                <button onClick={() => updateQty(item.id, item.qty - 1)} disabled={item.qty <= 1}></button>
+                <button onClick={() => updateQty(item.cartKey, item.qty - 1)} disabled={item.qty <= 1}>-</button>
                 <span>{item.qty}</span>
-                <button onClick={() => updateQty(item.id, item.qty + 1)}>+</button>
+                <button onClick={() => updateQty(item.cartKey, item.qty + 1)}>+</button>
               </div>
 
               {/* 行小�?*/}
               <p className="cart-item-total">${((parseFloat(item.sale_price) || parseFloat(item.price) || 0) * item.qty).toFixed(2)}</p>
 
               {/* 删除按钮 */}
-              <button className="cart-item-remove" onClick={() => removeFromCart(item.id)}></button>
+              <button className="cart-item-remove" onClick={() => removeFromCart(item.cartKey)}></button>
             </div>
           ))}
         </div>

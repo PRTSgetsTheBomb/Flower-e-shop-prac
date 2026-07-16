@@ -20,7 +20,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import FadeInUp from '../common/FadeInUp';
 import { useAuth } from '../../context/AuthContext';
-import { getUserOrders } from '../../utils/orders';
+import { getUserOrders, cancelOrder, cancelWcOrder } from '../../utils/orders';
 import '../../styles/AccountPage.css';
 
 const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
@@ -53,16 +53,30 @@ function AccountPage() {
                 const res = await fetch(`${API_BASE}/api/order/${order.wooCommerceId}`);
                 if (!res.ok) return null;
                 const data = await res.json();
-                return { id: order.id, status: data.status };
+                // 已完成的订单不因后台操作改变状态
+                if (data.status === 'trash' && order.status === 'completed') return null;
+                return { id: order.id, status: data.status, number: data.number };
             } catch { return null; }
         };
 
         Promise.all(wcOrders.map(fetchStatus)).then(results => {
             const map = {};
-            results.forEach(r => { if (r) map[r.id] = r.status; });
+            results.forEach(r => { if (r && r.status !== 'trash') map[r.id] = r; });
             setLiveStatuses(map);
         });
     }, [orders.length]);
+
+    const statusLabel = (s, order) => {
+        const isPickup = order.items?.every(item => item.deliveryMethod === 'pickup');
+        if (s === 'processing') return 'Processing';
+        if (s === 'fulfilled') return isPickup ? 'Ready for Pickup' : 'Shipped';
+        if (s === 'shipped') return 'Shipped';
+        if (s === 'readyforpickup') return 'Ready for Pickup';
+        if (s === 'completed') return isPickup ? 'Picked Up' : 'Delivered';
+        if (s === 'cancelled' || s === 'Cancelled') return 'Cancelled';
+        if (s === 'on-hold' || s === 'On Hold') return 'Awaiting Review';
+        return s;
+    };
 
     if (user) {
         return (
@@ -92,8 +106,21 @@ function AccountPage() {
                                         <Link key={order.id} to={`/order/${order.id}`} className="order-card-link">
                                             <div className="order-card">
                                                 <div className="order-header">
-                                                    <span className="order-id">{order.id}</span>
-                                                    <span className="order-status">{liveStatuses[order.id] || order.status}</span>
+                                                    <span className="order-id">{liveStatuses[order.id]?.number ? `#${liveStatuses[order.id].number}` : order.id}</span>
+                                                    <span className="order-status">{statusLabel(liveStatuses[order.id]?.status || order.status, order)}</span>
+                                                    {(liveStatuses[order.id]
+                                                        ? (liveStatuses[order.id].status === 'processing' || liveStatuses[order.id].status === 'on-hold')
+                                                        : (order.status === 'processing' || order.status === 'on-hold' || order.status === 'On Hold')
+                                                    ) && (
+                                                            <button className="btn-cancel-order" onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                if (!window.confirm('Cancel this order? This action cannot be undone.')) return;
+                                                                const email = user.email;
+                                                                cancelOrder(email, order.id);
+                                                                if (order.wooCommerceId) cancelWcOrder(order.wooCommerceId);
+                                                                window.location.reload();
+                                                            }}>Cancel</button>)}
                                                 </div>
                                                 <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
                                                 <div className="order-items">

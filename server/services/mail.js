@@ -38,6 +38,9 @@ const transporter = nodemailer.createTransport({
  * @param {string} params.deliveryTime    - 配送/自提时间
  */
 async function sendOrderConfirmation({ to, name, orderId, total, items, status, deliveryMethod, deliveryAddress, pickupLocation, deliveryTime }) {
+  const statusNames = { 'processing': 'Processing', 'on-hold': 'On Hold', 'completed': 'Completed', 'pending': 'Pending', 'cancelled': 'Cancelled' };
+  const statusName = statusNames[status] || status;
+  const statusColor = status === 'completed' ? '#065f46' : status === 'on-hold' ? '#3b82f6' : '#856404';
   const itemsHtml = items
     .map(
       (item) => `
@@ -88,7 +91,7 @@ async function sendOrderConfirmation({ to, name, orderId, total, items, status, 
                       </tr>
                       <tr>
                         <td style="color:#666;font-size:14px;">Status</td>
-                        <td style="text-align:right;color:#856404;font-weight:bold;">${status}</td>
+                        <td style="text-align:right;color:${statusColor};font-weight:bold;">${statusName}</td>
                       </tr>
                       <tr>
                         <td style="color:#666;font-size:14px;padding-top:10px;border-top:1px solid #ddd;"><strong>${deliveryMethod === 'Pickup' ? 'Pickup' : 'Delivery'}</strong></td>
@@ -162,7 +165,9 @@ async function sendOrderConfirmation({ to, name, orderId, total, items, status, 
   const mailOptions = {
     from: process.env.EMAIL_FROM || '"Pisces Flower" <noreply@piscesflower.com>',
     to,
-    subject: status === 'processing' ? `Your Order #${orderId} Is Now Being Processed — Pisces Flower` : `Order Confirmation #${orderId} — Pisces Flower`,
+    subject: status === 'processing' ? `Your Order #${orderId} Is Now Being Processed — Pisces Flower`
+      : status === 'on-hold' ? `Order #${orderId} Update — Pisces Flower`
+      : `Order Confirmation #${orderId} — Pisces Flower`,
     html,
   };
 
@@ -331,4 +336,46 @@ async function sendOrderCompleted({ to, name, orderId, deliveryMethod }) {
   }
 }
 
-module.exports = { sendOrderConfirmation, sendOrderShipped, sendOrderReadyForPickup, sendOrderCompleted };
+/**
+ * 发送订单取消通知邮件
+ */
+async function sendOrderCancelled({ to, name, orderId }) {
+  const html = `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+  <table width="100%" style="background:#f4f4f4;padding:20px;">
+    <tr><td align="center">
+      <table width="600" style="background:#fff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#dc3545;padding:30px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:24px;">Pisces Flower</h1>
+          <p style="color:#f8d7da;margin:8px 0 0;font-size:14px;">Order Cancelled</p>
+        </td></tr>
+        <tr><td style="padding:30px;">
+          <p style="font-size:16px;color:#333;">Hi <strong>${name}</strong>,</p>
+          <p style="color:#555;line-height:1.6;">Your order <strong>#${orderId}</strong> has been cancelled as requested.</p>
+          <p style="color:#555;line-height:1.6;">If you didn't request this cancellation or have any questions, please <a href="${process.env.SITE_URL || 'http://localhost:3000'}/contact" style="color:#dc3545;">contact us</a> immediately.</p>
+          <p style="color:#555;line-height:1.6;font-size:14px;">We hope to serve you again in the future.</p>
+        </td></tr>
+        <tr><td style="background:#dc3545;padding:20px;text-align:center;">
+          <p style="color:#f8d7da;margin:0;font-size:12px;">Pisces Flower &mdash; Fresh flowers delivered with love.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to, subject: `Your Order #${orderId} Has Been Cancelled — Pisces Flower`, html,
+    });
+    console.log('[Mail] Cancelled notice sent to', to, '| ID:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error('[Mail] Failed to send cancelled notice:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+module.exports = { sendOrderConfirmation, sendOrderShipped, sendOrderReadyForPickup, sendOrderCompleted, sendOrderCancelled, sendOrderCancelled };

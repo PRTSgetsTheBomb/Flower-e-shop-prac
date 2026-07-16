@@ -19,7 +19,7 @@ function DeliveryBanner() {
         onClick={() => setDismissed(true)}
         aria-label="Dismiss"
       >
-        âœ?
+        Ã—
       </button>
     </div>
   );

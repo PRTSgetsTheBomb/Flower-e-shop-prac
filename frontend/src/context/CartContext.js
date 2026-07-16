@@ -40,35 +40,34 @@ function cartReducer(state, action) {
   switch (action.type) {
     // 添加商品：如果已存在且配送方式一致则数量 +1，否则新增条目
     case 'ADD': {
-      const exist = state.find((item) =>
-        item.id === action.product.id && item.deliveryMethod === action.product.deliveryMethod
-      );
+      const cartKey = `${action.product.id}_${action.product.deliveryMethod}`;
+      const exist = state.find((item) => item.cartKey === cartKey);
       if (exist) {
-        // 不可变更新：用 map 找到目标项，用 ... 展开后修改 qty
         return state.map((item) =>
-          item.id === action.product.id ? { ...item, qty: item.qty + (action.product.qty || 1) } : item
+          item.cartKey === cartKey ? { ...item, qty: item.qty + (action.product.qty || 1) } : item
         );
       }
-      // 新商品：添加到数组末尾，设置数量（默认 1）
-      return [...state, { ...action.product, qty: action.product.qty || 1 }];
+      return [...state, { ...action.product, qty: action.product.qty || 1, cartKey }];
     }
-    // 移除商品：用 filter 排除目标 id
+    // 移除商品：用 filter 排除目标 cartKey
     case 'REMOVE':
-      return state.filter((item) => item.id !== action.id);
+      return state.filter((item) => item.cartKey !== action.cartKey);
     // 修改数量：Math.max(1, qty) 保证数量至少为 1，不允许负数和 0
     case 'UPDATE_QTY':
       return state.map((item) =>
-        item.id === action.id ? { ...item, qty: Math.max(1, action.qty) } : item
+        item.cartKey === action.cartKey ? { ...item, qty: Math.max(1, action.qty) } : item
       );
-    // 切换配送方式（pickup / delivery）
+    // 切换配送方式（pickup / delivery），同时更新 cartKey
     case 'UPDATE_DELIVERY_METHOD':
       return state.map((item) =>
-        item.id === action.id ? { ...item, deliveryMethod: action.method } : item
+        item.cartKey === action.cartKey
+          ? { ...item, deliveryMethod: action.method, cartKey: `${item.id}_${action.method}` }
+          : item
       );
     // 修改配送日期
     case 'UPDATE_DELIVERY_DATE':
       return state.map((item) =>
-        item.id === action.id ? { ...item, deliveryDate: action.date } : item
+        item.cartKey === action.cartKey ? { ...item, deliveryDate: action.date } : item
       );
     // 清空购物车
     case 'CLEAR':
@@ -81,7 +80,12 @@ function cartReducer(state, action) {
 function loadCart() {
   try {
     const saved = localStorage.getItem('cart_items');
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    const items = JSON.parse(saved);
+    // 迁移旧数据：为没有 cartKey 的条目生成 cartKey
+    return items.map(item =>
+      item.cartKey ? item : { ...item, cartKey: `${item.id}_${item.deliveryMethod || 'pickup'}` }
+    );
   } catch {
     return [];
   }
@@ -124,10 +128,10 @@ export function CartProvider({ children }) {
     dispatch({ type: 'ADD', product });
     showToast(`${product.name} added to cart`);
   }, [showToast]);
-  const removeFromCart = (id) => dispatch({ type: 'REMOVE', id });
-  const updateQty = (id, qty) => dispatch({ type: 'UPDATE_QTY', id, qty });
-  const updateDeliveryMethod = (id, method) => dispatch({ type: 'UPDATE_DELIVERY_METHOD', id, method });
-  const updateDeliveryDate = (id, date) => dispatch({ type: 'UPDATE_DELIVERY_DATE', id, date });
+  const removeFromCart = (cartKey) => dispatch({ type: 'REMOVE', cartKey });
+  const updateQty = (cartKey, qty) => dispatch({ type: 'UPDATE_QTY', cartKey, qty });
+  const updateDeliveryMethod = (cartKey, method) => dispatch({ type: 'UPDATE_DELIVERY_METHOD', cartKey, method });
+  const updateDeliveryDate = (cartKey, date) => dispatch({ type: 'UPDATE_DELIVERY_DATE', cartKey, date });
   const clearCart = () => dispatch({ type: 'CLEAR' });
 
   // 派生状态：每次渲染根据当前购物车数据重新计算

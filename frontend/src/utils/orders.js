@@ -93,3 +93,32 @@ export function getOrderById(email, orderId) {
   const orders = getUserOrders(email);
   return orders.find((o) => o.id === orderId) || null;
 }
+
+/**
+ * 顾客自己取消订单
+ */
+export function cancelOrder(email, orderId) {
+  const all = getAllOrders();
+  const userOrders = all[email] || [];
+  const idx = userOrders.findIndex(o => o.id === orderId);
+
+  if (idx === -1) return false;
+  userOrders[idx] = { ...userOrders[idx], status: 'Cancelled' };
+  all[email] = userOrders;
+  saveOrders(all);
+  return true;
+}
+
+/**
+ * 同步到 WC（异步，不阻塞 UI）
+ */
+
+export async function cancelWcOrder(wcOrderId) { 
+  await fetch(`http://localhost:5000/api/order/${wcOrderId}/status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status: 'cancelled' }),
+  })
+}

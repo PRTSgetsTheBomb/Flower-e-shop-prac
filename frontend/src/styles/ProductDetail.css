@@ -133,6 +133,55 @@
   border-color: var(--color-primary);
 }
 
+/* 郊区文本输入验证 */
+.suburb-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.suburb-text-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.95em;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.suburb-text-input:focus {
+  border-color: var(--color-primary);
+}
+.suburb-valid {
+  font-size: 0.85em;
+  color: #28a745;
+  font-weight: 500;
+}
+.suburb-invalid {
+  font-size: 0.85em;
+  color: #dc3545;
+  font-weight: 500;
+}
+.suburb-checking {
+  font-size: 0.85em;
+  color: #6c757d;
+  font-weight: 500;
+}
+.suburb-mode-toggle {
+  display: inline-block;
+  background: none;
+  border: none;
+  color: var(--color-primary, #2d5a27);
+  font-size: 0.85em;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+}
+.suburb-mode-toggle:hover {
+  opacity: 0.7;
+}
+
 .qty-selector {
   display: inline-flex;
   align-items: center;
@@ -216,11 +265,17 @@
   font-size: 1em;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .detail-add-btn:hover {
   opacity: 0.85;
+}
+
+.detail-add-btn:active {
+  background: #333;
+  opacity: 1;
 }
 
 .detail-full-desc {
@@ -250,16 +305,23 @@
 /* -- 推荐商品区域 -- */
 .detail-recommended {
   margin-top: 60px;
-  padding-top: 40px;
-  border-top: 1px solid #eee;
+  padding-top: 48px;
+  border-top: 1px solid var(--color-border, #e8e8e8);
+  background: linear-gradient(to bottom, var(--color-bg-warm, #fdf6f8), transparent 60px);
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: max(20px, calc((100vw - var(--max-width, 1200px)) / 2));
+  padding-right: max(20px, calc((100vw - var(--max-width, 1200px)) / 2));
+  padding-bottom: 60px;
 }
 
 .detail-rec-title {
   font-size: 1.5em;
-  font-weight: 700;
-  color: #222;
+  font-weight: 600;
+  color: var(--color-text, #2d2d2d);
   text-align: center;
   margin-bottom: 32px;
+  letter-spacing: -0.01em;
 }
 
 @media (max-width: 768px) {

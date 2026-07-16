@@ -18,16 +18,6 @@
       <h1>Pisces Flower Analytics</h1>
       <span class="header-subtitle">Sales Dashboard</span>
     </div>
-    <div class="header-center">
-      <div class="date-filter-row">
-        <span class="filter-label"></span>
-        <input type="date" id="filterStartDate">
-        <span class="filter-sep">—</span>
-        <input type="date" id="filterEndDate">
-        <button id="btnThisWeek">This Week</button>
-        <button id="btnThisMonth">This Month</button>
-      </div>
-    </div>
     <div class="header-right">
       <span class="last-update" id="lastUpdate"></span>
       <button class="btn-refresh" id="btnRefresh" onclick="loadAll()">Refresh</button>
@@ -38,8 +28,73 @@
     <div id="page-main">
       <!-- ============ Overview ============ -->
       <section id="tab-overview">
-        <!-- KPI Cards -->
-        <div class="kpi-row" style="grid-template-columns:repeat(7,1fr);">
+        <!-- ============ Today's Orders ============ -->
+        <section id="tab-today" style="margin-bottom:20px;">
+          <div class="section-toolbar">
+            <h2>Upcoming Orders — <span id="todayDate"></span></h2>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="toolbar-hint" id="todayHint"></span>
+              <select id="upcomingDays" onchange="loadTodayOrders(this.value)"
+                style="padding:4px 8px;border:1px solid #d0d4dc;border-radius:6px;font-size:12px;color:#1a1a2e;">
+                <option value="1">Today</option>
+                <option value="3">Next 3 days</option>
+                <option value="7">Next 7 days</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="today-grid" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;">
+            <div class="today-card today-areas">
+              <div class="today-card-header" style="background:#fffbeb;color:#92400e;">📍 Areas Today <span
+                  class="today-count" style="color:#92400e;" id="todayAreaCount">0</span></div>
+              <div class="today-list" id="todayAreasList" style="font-size:13px;line-height:1.8;">
+                <p class="today-empty">—</p>
+              </div>
+            </div>
+            <div class="today-card today-onhold">
+              <div class="today-card-header" style="background:#fef3c7;color:#92400e;">⏸️ On Hold <span class="today-count" style="color:#92400e;" id="todayHoldCount">0</span></div>
+              <div class="today-list" id="todayOnHoldList">
+                <p class="today-empty">No orders on hold.</p>
+              </div>
+            </div>
+            <div class="today-card today-delivery">
+              <div class="today-card-header">🚚 To Deliver <span class="today-count" id="todayDelCount">0</span></div>
+              <div class="today-list" id="todayDeliveryList">
+                <p class="today-empty">No deliveries for today.</p>
+              </div>
+            </div>
+            <div class="today-card today-pickup">
+              <div class="today-card-header">📦 Ready for Pickup <span class="today-count" id="todayPickCount">0</span>
+              </div>
+              <div class="today-list" id="todayPickupList">
+                <p class="today-empty">No pickups for today.</p>
+              </div>
+            </div>
+            <div class="today-card today-completed">
+              <div class="today-card-header" style="background:#ecfdf5;color:#065f46;">✅ Completed Today <span
+                  class="today-count" style="color:#065f46;" id="todayCompCount">0</span></div>
+              <div class="today-list" id="todayCompletedList">
+                <p class="today-empty">No completed orders for today.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 日期筛选（仅影响下方 KPI 和图表，不影响 Upcoming Orders） -->
+        <div class="date-filter-bar">
+          <div class="date-filter-row">
+            <input type="date" id="filterStartDate">
+            <span class="filter-sep">—</span>
+            <input type="date" id="filterEndDate">
+            <button id="btnThisWeek">This Week</button>
+            <button id="btnThisMonth">This Month</button>
+            <button id="btnAllToday">All</button>
+            <span class="filter-label"></span>
+          </div>
+        </div>
+
+        <!-- 汇总指标 -->
+        <div class="kpi-row" style="grid-template-columns:repeat(5,1fr);">
           <div class="kpi-card">
             <div class="kpi-label">Total Orders</div>
             <div class="kpi-value" id="kpi-totalOrders">—</div>
@@ -51,14 +106,6 @@
           <div class="kpi-card">
             <div class="kpi-label">Avg Order Value</div>
             <div class="kpi-value" id="kpi-avgOrderValue">—</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Delivery</div>
-            <div class="kpi-value" id="kpi-deliveryCount">—</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Pickup</div>
-            <div class="kpi-value" id="kpi-pickupCount">—</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Total Delivery Fee</div>
@@ -297,7 +344,15 @@
   <div class="ai-chat-popup" id="aiChatPopup">
     <div class="ai-chat-header">
       <span>🤖 AI Analyst</span>
-      <button class="ai-chat-close" onclick="toggleAiChat()">✕</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <select id="aiModelSelect" onchange="console.log('[AI] Model switched to:', this.value)" style="padding:8px 8px;border-radius:6px;font-size:11px;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);cursor:pointer;">
+          <option value="auto">Auto</option>
+          <option value="DeepSeek-V4-Flash" style="color:#1a1a2e;">Fast Response</option>
+          <option value="claude-sonnet-5" style="color:#1a1a2e;">Data Analysis</option>
+          <option value="DeepSeek-V4-Pro" style="color:#1a1a2e;">Deep Insight</option>
+        </select>
+        <button class="ai-chat-close" onclick="toggleAiChat()">✕</button>
+      </div>
     </div>
     <div class="ai-chat-body" id="aiChatBody">
       <div class="ai-chat-welcome">
@@ -305,18 +360,26 @@
         <p>Hello! I'm your data analyst. I can help you understand your sales data.</p>
         <p class="ai-chat-hint">Try asking:</p>
         <div class="ai-quick-options" id="aiQuickOptions">
-          <button class="ai-quick-btn" data-question="What are the key insights from the current data?">📊 Key Insights</button>
-          <button class="ai-quick-btn" data-question="Which products are performing best and which need attention?">🏆 Product Performance</button>
-          <button class="ai-quick-btn" data-question="Analyze delivery areas — which suburbs are strongest and which are under-served?">📍 Delivery Analysis</button>
-          <button class="ai-quick-btn" data-question="Based on the data, what recommendations do you have to grow revenue?">💡 Growth Tips</button>
+          <button class="ai-quick-btn" data-question="How many orders I need to deal with today?">Today's order</button>
+          <button class="ai-quick-btn" data-question="How many orders I need to deliver today?">Today's
+            delivery</button>
+          <button class="ai-quick-btn" data-question="Where do I need to go for deliver the flowers today?">Deliver to
+            where?</button>
+          <button class="ai-quick-btn"
+            data-question="Based on the data, what recommendations do you have to save the time for delivery?">Delivery
+            tips</button>
         </div>
       </div>
     </div>
     <div class="ai-chat-footer">
       <input type="text" id="aiChatInput" placeholder="Ask a question about your data..."
-             onkeydown="if(event.key==='Enter')sendAiMessage()">
+        onkeydown="if(event.key==='Enter')sendAiMessage()">
       <button id="aiChatSend" onclick="sendAiMessage()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13" />
+          <polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
       </button>
     </div>
     <div class="ai-chat-resize" id="aiChatResize" title="Drag to resize"></div>
