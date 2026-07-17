@@ -23,10 +23,119 @@ app.use(express.json());
 
 // ---------- 挂载路由模块 ----------
 app.use(require('./routes/stripe'));
+app.use(requireAdmin);
 
 // ============================================================
 //  用户注册（创建 WooCommerce 客户）
 // ============================================================
+
+// ============================================================
+//  Admin 认证
+// ============================================================
+
+/**
+ * 验证 JWT token 是否为管理员身份
+ * 返回 WordPress 用户信息，非管理员抛 403
+ */
+async function verifyAdmin(token) {
+  const wpResp = await fetch(`${process.env.WC_URL}/wp-json/wp/v2/users/me?context=edit`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!wpResp.ok) return null;
+  const wpUser = await wpResp.json();
+  console.log('[verifyAdmin] WP /users/me response:', JSON.stringify({ id: wpUser.id, name: wpUser.name, roles: wpUser.roles, slug: wpUser.slug }));
+  const adminRoles = ['administrator', 'shop_manager', 'editor'];
+  if (!wpUser.roles?.some(r => adminRoles.includes(r))) return null;
+  return wpUser;
+}
+
+/**
+ * 鉴权中间件：保护 /api/analytics/* 和 /api/order* 等管理接口
+ */
+async function requireAdmin(req, res, next) {
+  // 跳过非管理接口
+  const adminPaths = ['/api/analytics', '/api/orders', '/api/order', '/api/ai', '/api/sync-reviews', '/api/wc'];
+  const isAdminPath = adminPaths.some(path => req.path.startsWith(path));
+  if (!isAdminPath) return next();
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Authentication required.' });
+  const token = authHeader.split(' ')[1];
+  const user = await verifyAdmin(token);
+  if (!user) return res.status(401).json({ error: 'Invalid token or insufficient permissions.' });
+  req.adminUser = user;
+  next();
+}
+
+/**
+ * POST /api/admin/login
+ * Body: { email, password }
+ * Returns: { token, user: { name, email } }
+ */
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    // 调用 WordPress JWT Auth 获取 token
+    const jwtResp = await fetch(`${process.env.WC_URL}/wp-json/jwt-auth/v1/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: email, password }),
+    });
+
+    if (!jwtResp.ok) {
+      const err = await jwtResp.json().catch(() => ({}));
+      const msg = (err.message || 'Invalid email or password.')
+      .replace(/<[^>]+>/g, '')
+      .replace(/忘记密码\？?/g, '')
+      .trim();
+      return res.status(401).json({ error: msg });
+    }
+
+    const { token } = await jwtResp.json();
+
+    // 验证是否为管理员
+    const user = await verifyAdmin(token);
+    if (!user) {
+      return res.status(401).json({ error: 'Admin access required. This account does not have admin privileges.' });
+    }
+
+    console.log(`[Admin] Login: ${user.name} (${email})`);
+    res.json({
+      token,
+      user: {
+        name: user.name,
+        email: user.email || email,
+      }
+    });
+  } catch (err) {
+    console.error('[Login] Error:', err.message);
+    res.status(500).json({ error: 'Login failed. Please try again.' });
+  }
+})
+
+/**
+ * POST /api/admin/verify
+ * Body: { token }
+ * Returns: { valid: true, user: {...} }
+ * 用于前端页面刷新后验证 sessionStorage 中的 token 是否仍然有效
+ */
+app.post('/api/admin/verify', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.json({ valid: false });
+
+    const user = await verifyAdmin(token);
+    if (!user) return res.json({ valid: false });
+
+    res.json({ valid: true, user: { name: user.name, email: user.email } });
+  } catch {
+    res.json({ valid: false });
+  }
+})
 
 /**
  * POST /api/register
@@ -248,8 +357,8 @@ app.post('/api/create-order', async (req, res) => {
         {
           key: 'delivery_method',
           value: items.every(item => item.deliveryMethod !== 'delivery') ? 'Pickup'
-               : items.every(item => item.deliveryMethod === 'delivery') ? 'Delivery'
-               : 'Mixed',
+            : items.every(item => item.deliveryMethod === 'delivery') ? 'Delivery'
+              : 'Mixed',
         },
       ],
     };

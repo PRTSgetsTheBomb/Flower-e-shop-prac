@@ -93,8 +93,8 @@
 ~~7. 相同的区聚类~~
 ~~8. 取消订单功能~~
 2. 退货/退款功能
-3. dashboard登录认证
-4. test脚本
+~~3. dashboard登录认证~~
+~~4. test脚本~~
 5. index.js拆分，方便维护
 ~~10. Product Detail界面：允许用户在此输入郊区名并验证~~
 ~~8. Today KPI卡片可以多分几个（To where, delivery, completed等）~~

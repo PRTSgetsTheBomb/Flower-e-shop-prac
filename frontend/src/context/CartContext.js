@@ -36,7 +36,7 @@ import React, { createContext, useContext, useReducer, useState, useCallback } f
 const CartContext = createContext();
 
 // ---- Reducer：集中管理所有购物车状态变更 ----
-function cartReducer(state, action) {
+export function cartReducer(state, action) {
   switch (action.type) {
     // 添加商品：如果已存在且配送方式一致则数量 +1，否则新增条目
     case 'ADD': {

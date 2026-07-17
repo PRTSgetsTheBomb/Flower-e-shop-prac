@@ -13,18 +13,44 @@
 </head>
 
 <body>
-  <header class="dashboard-header">
+  <!-- ============ Login Overlay ============ -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>Pisces Flower</h1>
+        <p>Analytics Dashboard</p>
+      </div>
+      <form id="loginForm" onsubmit="handleLogin(event)" style="display:none;">
+        <div class="login-field">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" placeholder="admin@piscesflower.com" required autofocus>
+        </div>
+        <div class="login-field">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" placeholder="Enter password" required>
+        </div>
+        <p class="login-error" id="loginError"></p>
+        <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
+      </form>
+      <div class="login-loading" id="loginLoading" style="display:none;">
+        <p>Verifying...</p>
+      </div>
+    </div>
+  </div>
+  <header class="dashboard-header" style="display:none;">
     <div class="header-left">
       <h1>Pisces Flower Analytics</h1>
       <span class="header-subtitle">Sales Dashboard</span>
     </div>
     <div class="header-right">
+      <span class="header-welcome" id="headerWelcome"></span>
       <span class="last-update" id="lastUpdate"></span>
       <button class="btn-refresh" id="btnRefresh" onclick="loadAll()">Refresh</button>
+      <button class="btn-logout" onclick="clearToken();showLogin(false);">Logout</button>
     </div>
   </header>
 
-  <main class="dashboard-body">
+  <main class="dashboard-body" style="display:none;">
     <div id="page-main">
       <!-- ============ Overview ============ -->
       <section id="tab-overview">
@@ -52,7 +78,8 @@
               </div>
             </div>
             <div class="today-card today-onhold">
-              <div class="today-card-header" style="background:#fef3c7;color:#92400e;">⏸️ On Hold <span class="today-count" style="color:#92400e;" id="todayHoldCount">0</span></div>
+              <div class="today-card-header" style="background:#fef3c7;color:#92400e;">⏸️ On Hold <span
+                  class="today-count" style="color:#92400e;" id="todayHoldCount">0</span></div>
               <div class="today-list" id="todayOnHoldList">
                 <p class="today-empty">No orders on hold.</p>
               </div>
@@ -345,7 +372,8 @@
     <div class="ai-chat-header">
       <span>🤖 AI Analyst</span>
       <div style="display:flex;align-items:center;gap:6px;">
-        <select id="aiModelSelect" onchange="console.log('[AI] Model switched to:', this.value)" style="padding:8px 8px;border-radius:6px;font-size:11px;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);cursor:pointer;">
+        <select id="aiModelSelect" onchange="console.log('[AI] Model switched to:', this.value)"
+          style="padding:8px 8px;border-radius:6px;font-size:11px;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);cursor:pointer;">
           <option value="auto">Auto</option>
           <option value="DeepSeek-V4-Flash" style="color:#1a1a2e;">Fast Response</option>
           <option value="claude-sonnet-5" style="color:#1a1a2e;">Data Analysis</option>

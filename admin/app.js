@@ -6,6 +6,142 @@
  * 图表库：Chart.js (CDN)
  */
 
+// ---- Auth ----
+const AUTH_TOKEN_KEY = 'pisces_admin_token';
+let authToken = null;
+
+function getToken() {
+  if (authToken) return authToken;
+  authToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
+  return authToken;
+}
+
+function setToken(token) {
+  authToken = token;
+  sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+function clearToken() {
+  authToken = null;
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem('pisces_admin_user');
+}
+
+function setUser(name) {
+  sessionStorage.setItem('pisces_admin_user', name);
+  const el = document.getElementById('headerWelcome');
+  if (el) el.textContent = 'Welcome, ' + name;
+}
+
+function showUser() {
+  const name = sessionStorage.getItem('pisces_admin_user');
+  if (name) {
+    const el = document.getElementById('headerWelcome');
+    if (el) el.textContent = 'Welcome, ' + name;
+  }
+}
+
+// 包装 fetch，自动附加 Authorization header
+async function fetchAuth(url, options = {}) {
+  const token = getToken();
+  const headers = { ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url, { ...options, headers });
+  // 如果token过期，清除并触发重新登录
+  if (res.status === 401) {
+    clearToken();
+    showLogin(false);
+  }
+  return res;
+}
+// 登录处理
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errorEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+
+  if (!email || !password) {
+    errorEl.textContent = 'Please fill in all fields.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+  errorEl.textContent = '';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Login failed, please try again later.';
+      return;
+    }
+
+    setToken(data.token);
+    setUser(data.user?.name || data.user?.email || email);
+    hideLogin();
+    loadAll();     // 登录成功后加载数据
+  } catch (err) {
+    errorEl.textContent = err.message || 'Cannot connect to server. Make sure the server is running.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+
+  }
+}
+
+function showLogin(verifying) {
+  const overlay = document.getElementById('loginOverlay');
+  overlay.style.display = 'flex';
+  overlay.classList.toggle('verifying', !!verifying);
+  document.getElementById('loginForm').style.display = verifying ? 'none' : '';
+  document.getElementById('loginLoading').style.display = verifying ? '' : 'none';
+  document.querySelector('.dashboard-header').style.display = 'none';
+  document.querySelector('.dashboard-body').style.display = 'none';
+}
+
+function hideLogin() {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.querySelector('.dashboard-header').style.display = '';
+  document.querySelector('.dashboard-body').style.display = '';
+  showUser();
+}
+
+// 页面加载时验证已有 token
+async function initAuth() {
+  const token = getToken();
+  if (!token) {
+    showLogin(false);
+    return false;
+  }
+
+  showLogin(true);   // 显示 "Verifying..." 而不是登录表单
+
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json();
+    if (data.valid) {
+      hideLogin();
+      return true;
+    }
+  } catch {}
+
+  clearToken();
+  showLogin(false);  // 验证失败，显示登录表单
+  return false;
+}
+
 const API_BASE = 'http://localhost:5000';
 
 // ---- Chart.js 全局默认配置 ----
@@ -70,7 +206,10 @@ function createRevenueOverlay() {
 //  初始化
 // ============================================================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  const authed = await initAuth();
+  if (!authed) return;
+
   loadAll();
 
   // 每 30 分钟自动刷新数据
@@ -147,7 +286,7 @@ async function loadAll() {
     ]);
 
     // Trend图表单独加载全量月度数据（始终显示全年趋势，不受日期筛选影响）
-    const fullRes = await fetch(`${API_BASE}/api/analytics/summary`);
+    const fullRes = await fetchAuth(`${API_BASE}/api/analytics/summary`);
     if (fullRes.ok) {
       const fullData = await fullRes.json();
       allMonthlyData = fullData.monthly;
@@ -159,13 +298,13 @@ async function loadAll() {
 
     // AI 用：单独加载全量商品和区域数据（不受日期筛选影响）
     try {
-      const fullProd = await fetch(`${API_BASE}/api/analytics/products`);
+      const fullProd = await fetchAuth(`${API_BASE}/api/analytics/products`);
       if (fullProd.ok) window.allProductsData = (await fullProd.json()).products || [];
-    } catch {}
+    } catch { }
     try {
-      const fullArea = await fetch(`${API_BASE}/api/analytics/delivery-areas`);
+      const fullArea = await fetchAuth(`${API_BASE}/api/analytics/delivery-areas`);
       if (fullArea.ok) window.allAreasData = (await fullArea.json()).areas || [];
-    } catch {}
+    } catch { }
 
     document.getElementById('lastUpdate').textContent = `Last updated: ${new Date().toLocaleString()}`;
   } catch (err) {
@@ -181,7 +320,7 @@ async function loadAll() {
 async function loadTodayOrders(days) {
   try {
     const d = days || 1;
-    const res = await fetch(`${API_BASE}/api/analytics/today?days=${d}`);
+    const res = await fetchAuth(`${API_BASE}/api/analytics/today?days=${d}`);
     if (!res.ok) return;
     const data = await res.json();
 
@@ -388,7 +527,7 @@ function renderTodayOrder(order) {
 
 async function changeOrderStatus(orderId, newStatus) {
   try {
-    const res = await fetch(`${API_BASE}/api/order/${orderId}/status`, {
+    const res = await fetchAuth(`${API_BASE}/api/order/${orderId}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
@@ -441,7 +580,7 @@ async function loadSummary(startDate, endDate) {
   const qs = params.toString();
   if (qs) url += '?' + qs;
 
-  const res = await fetch(url);
+  const res = await fetchAuth(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
 
@@ -510,7 +649,7 @@ function applyDateFilter() {
   if (startVal) params.set('startDate', startVal);
   if (endVal) params.set('endDate', endVal);
 
-  fetch(`${API_BASE}/api/analytics/daily?${params}`)
+  fetchAuth(`${API_BASE}/api/analytics/daily?${params}`)
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(data => {
       renderDailyChart(data.daily);
@@ -918,7 +1057,7 @@ async function loadDeliveryAreas(startDate, endDate) {
   const qs = params.toString();
   if (qs) url += '?' + qs;
 
-  const res = await fetch(url);
+  const res = await fetchAuth(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const areas = data.areas || [];
@@ -1009,7 +1148,7 @@ async function loadProducts(startDate, endDate) {
   const qs = params.toString();
   if (qs) url += '?' + qs;
 
-  const res = await fetch(url);
+  const res = await fetchAuth(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const products = data.products || [];
@@ -1350,7 +1489,7 @@ function openAreaDetail(suburb) {
 
 async function loadAreaDetail(suburb) {
   try {
-    const res = await fetch(`${API_BASE}/api/analytics/delivery-area/${encodeURIComponent(suburb)}`);
+    const res = await fetchAuth(`${API_BASE}/api/analytics/delivery-area/${encodeURIComponent(suburb)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
@@ -1666,11 +1805,13 @@ async function requestAiAnalysis(question) {
   console.log('[AI Frontend] monthlyTrend chars:', monthlyTrend.length, 'monthly data entries:', monthly?.length);
 
   // 4) 调用AI
-  const res = await fetch(`${API_BASE}/api/ai/analyze`, {
+  const res = await fetchAuth(`${API_BASE}/api/ai/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ overview, topProducts, topAreas, monthlyTrend, dateRange, question,
-      model: document.getElementById('aiModelSelect')?.value || '' }),
+    body: JSON.stringify({
+      overview, topProducts, topAreas, monthlyTrend, dateRange, question,
+      model: document.getElementById('aiModelSelect')?.value || ''
+    }),
   });
 
   if (!res.ok) {
@@ -1835,11 +1976,13 @@ async function sendAiMessage() {
     }
 
     // SSE streaming fetch
-    const res = await fetch(`${API_BASE}/api/ai/analyze`, {
+    const res = await fetchAuth(`${API_BASE}/api/ai/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ overview, topProducts, topAreas, monthlyTrend, todaySummary, dateRange, question, 
-        model: document.getElementById('aiModelSelect')?.value || '' }),
+      body: JSON.stringify({
+        overview, topProducts, topAreas, monthlyTrend, todaySummary, dateRange, question,
+        model: document.getElementById('aiModelSelect')?.value || ''
+      }),
     });
 
     if (!res.ok) {

@@ -27,7 +27,7 @@ export function toNameSlug(name) {
 }
 
 // WooCommerce API 数据映射（含完整价格信息）
-function mapProduct(product) {
+export function mapProduct(product) {
   return {
     id: product.id,
     name: product.name,
@@ -43,7 +43,7 @@ function mapProduct(product) {
 }
 
 // WordPress API 数据映射（无价格数据，price 为 null）
-function mapProductWP(product) {
+export function mapProductWP(product) {
   return {
     id: product.id,
     name: product.title.rendered,
