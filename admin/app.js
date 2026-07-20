@@ -213,9 +213,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadAll();
 
   // 每 30 分钟自动刷新数据
-  setInterval(() => {
+  const refreshTimer = setInterval(() => {
     loadAll();
   }, 30 * 60 * 1000);
+
+  // 页面卸载时清除定时器，避免多标签页累积内存泄漏
+  window.addEventListener('beforeunload', () => {
+    clearInterval(refreshTimer);
+  });
 
   // 返回按钮：恢复主页面，回到地区列表
   const backBtn = document.getElementById('btn-back-areas');

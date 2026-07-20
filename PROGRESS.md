@@ -96,6 +96,8 @@
 ~~3. dashboard登录认证~~
 ~~4. test脚本~~
 5. index.js拆分，方便维护
+6. 联系表单未对接：ContactPage表面对接，实则未发送
+~~7. admin 30分钟刷新会导致内存泄漏~~
 ~~10. Product Detail界面：允许用户在此输入郊区名并验证~~
 ~~8. Today KPI卡片可以多分几个（To where, delivery, completed等）~~
 ~~4. 修改默认问题选择：跟今天的订单有关的问题~~
