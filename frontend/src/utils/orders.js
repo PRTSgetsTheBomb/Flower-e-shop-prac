@@ -108,17 +108,3 @@ export function cancelOrder(email, orderId) {
   saveOrders(all);
   return true;
 }
-
-/**
- * 同步到 WC（异步，不阻塞 UI）
- */
-
-export async function cancelWcOrder(wcOrderId) { 
-  await fetch(`http://localhost:5000/api/order/${wcOrderId}/status`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ status: 'cancelled' }),
-  })
-}

@@ -20,7 +20,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import FadeInUp from '../common/FadeInUp';
 import { useAuth } from '../../context/AuthContext';
-import { getUserOrders, cancelOrder, cancelWcOrder } from '../../utils/orders';
+import { getUserOrders } from '../../utils/orders';
 import '../../styles/AccountPage.css';
 
 const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
@@ -107,20 +107,10 @@ function AccountPage() {
                                             <div className="order-card">
                                                 <div className="order-header">
                                                     <span className="order-id">{liveStatuses[order.id]?.number ? `#${liveStatuses[order.id].number}` : order.id}</span>
-                                                    <span className="order-status">{statusLabel(liveStatuses[order.id]?.status || order.status, order)}</span>
-                                                    {(liveStatuses[order.id]
-                                                        ? (liveStatuses[order.id].status === 'processing' || liveStatuses[order.id].status === 'on-hold')
-                                                        : (order.status === 'processing' || order.status === 'on-hold' || order.status === 'On Hold')
-                                                    ) && (
-                                                            <button className="btn-cancel-order" onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                if (!window.confirm('Cancel this order? This action cannot be undone.')) return;
-                                                                const email = user.email;
-                                                                cancelOrder(email, order.id);
-                                                                if (order.wooCommerceId) cancelWcOrder(order.wooCommerceId);
-                                                                window.location.reload();
-                                                            }}>Cancel</button>)}
+                                                    <span className="order-status">{statusLabel(
+                                                        order.status === 'Cancelled' ? 'Cancelled' : (liveStatuses[order.id]?.status || order.status),
+                                                        order
+                                                    )}</span>
                                                 </div>
                                                 <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
                                                 <div className="order-items">

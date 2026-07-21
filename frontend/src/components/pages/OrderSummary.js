@@ -14,7 +14,7 @@ import { useParams, Link } from 'react-router-dom';
 import FadeInUp from '../common/FadeInUp';
 import SaveAddressBtn from './SaveAddressBtn';
 import { useAuth } from '../../context/AuthContext';
-import { getOrderById, cancelOrder, cancelWcOrder } from '../../utils/orders';
+import { getOrderById } from '../../utils/orders';
 import '../../styles/OrderSummary.css';
 
 function OrderSummary() {
@@ -119,19 +119,7 @@ function OrderSummary() {
                         })()}
                         <h1>Thank You, {user.name}!</h1>
                         <p className="os-subtitle">Your order has been placed successfully.</p>
-                        {(liveStatus?.status ? (liveStatus.status === 'on-hold' || liveStatus.status === 'processing')
-                            : (order.status === 'On Hold' || order.status === 'on-hold' || order.status === 'processing')) && (
-                            <button
-                                className="btn-secondary"
-                                style={{ marginTop: 12, background: '#dc3545', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: 6, cursor: 'pointer' }}
-                                onClick={() => {
-                                    if (!window.confirm('Cancel this order? This action cannot be undone.')) return;
-                                    cancelOrder(user.email, order.id);
-                                    if (order.wooCommerceId) cancelWcOrder(order.wooCommerceId);
-                                    window.location.reload();
-                                }}
-                            >Cancel Order</button>
-                        )}
+                        <p className='os-subtitle'>If you want to cancel the order, please contact us as soon as possible.</p>
                     </div>
 
                     {/* 订单信息 */}

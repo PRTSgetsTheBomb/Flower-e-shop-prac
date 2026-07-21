@@ -37,6 +37,20 @@
       </div>
     </div>
   </div>
+
+  <!-- ============ Password Confirm Modal ============ -->
+  <div class="pwd-overlay" id="pwdOverlay" style="display:none;">
+    <div class="pwd-card">
+      <h3>Confirm Admin Password</h3>
+      <p id="pwdMessage">Please enter your password to confirm this action.</p>
+      <input type="password" id="pwdInput" placeholder="Enter password" autocomplete="off">
+      <div class="pwd-actions">
+        <button class="pwd-btn pwd-btn-cancel" onclick="closePwdPrompt()">Cancel</button>
+        <button class="pwd-btn pwd-btn-confirm" id="pwdConfirmBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <header class="dashboard-header" style="display:none;">
     <div class="header-left">
       <h1>Pisces Flower Analytics</h1>
@@ -219,7 +233,7 @@
                     <th>Suburb</th>
                     <th>Orders</th>
                     <th>Revenue (Delivery Fee Excluded)</th>
-                    <th>Delivery Fee</th>
+                    <th>Delivery Fee per order</th>
                   </tr>
                 </thead>
                 <tbody id="areasBody"></tbody>

@@ -1525,3 +1525,30 @@ td.suburb-link:hover {
   font-size: 13px;
   font-weight: 500;
 }
+
+/* ---- Password Confirm Modal ---- */
+.pwd-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 10000;
+}
+.pwd-card {
+  background: #fff; border-radius: 16px; padding: 32px 28px;
+  width: 360px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.pwd-card h3 { font-size: 18px; color: #1a1a2e; margin: 0 0 8px; }
+.pwd-card p { font-size: 13px; color: #8899aa; margin: 0 0 18px; }
+.pwd-card input {
+  width: 100%; padding: 10px 14px; border: 1.5px solid #d0d4dc;
+  border-radius: 8px; font-size: 14px; color: #1a1a2e; outline: none;
+  transition: border-color 0.2s; box-sizing: border-box; margin-bottom: 20px;
+}
+.pwd-card input:focus { border-color: #0d9488; }
+.pwd-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.pwd-btn {
+  padding: 8px 20px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  cursor: pointer; border: none; transition: background 0.2s;
+}
+.pwd-btn-cancel { background: #e0e4ea; color: #1a1a2e; }
+.pwd-btn-cancel:hover { background: #d0d4dc; }
+.pwd-btn-confirm { background: #0d9488; color: #fff; }
+.pwd-btn-confirm:hover { background: #0f766e; }

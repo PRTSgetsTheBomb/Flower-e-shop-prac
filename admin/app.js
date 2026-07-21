@@ -41,6 +41,47 @@ function showUser() {
   }
 }
 
+// ---- 密码确认弹窗 ----
+function showPwdPrompt(message) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('pwdOverlay');
+    const input = document.getElementById('pwdInput');
+    const msgEl = document.getElementById('pwdMessage');
+    const confirmBtn = document.getElementById('pwdConfirmBtn');
+
+    msgEl.textContent = message || 'Please enter your admin password.';
+    input.value = '';
+    overlay.style.display = 'flex';
+    setTimeout(() => input.focus(), 100);
+
+    function cleanup() {
+      overlay.style.display = 'none';
+      confirmBtn.removeEventListener('click', onSubmit);
+      input.removeEventListener('keydown', onKey);
+    }
+
+    function onSubmit() {
+      cleanup();
+      resolve(input.value);
+    }
+
+    function onKey(e) {
+      if (e.key === 'Enter') onSubmit();
+      if (e.key === 'Escape') { cleanup(); resolve(''); }
+    }
+
+    confirmBtn.addEventListener('click', onSubmit);
+    input.addEventListener('keydown', onKey);
+  });
+}
+
+function closePwdPrompt() {
+  document.getElementById('pwdOverlay').style.display = 'none';
+  // Resolve with empty string to cancel
+  const input = document.getElementById('pwdInput');
+  if (input) input.value = '';
+}
+
 // 包装 fetch，自动附加 Authorization header
 async function fetchAuth(url, options = {}) {
   const token = getToken();
@@ -233,7 +274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 事件委托：点击地区链接打开详情
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
     const link = e.target.closest('.suburb-link');
     if (link) {
       const suburb = link.dataset.suburb;
@@ -248,6 +289,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (status && oid) {
         if (status === 'cancelled') {
           if (!confirm('Are you sure you want to cancel this order? This action cannot be undone.')) return;
+          const pwd = await showPwdPrompt('Please enter your admin password to confirm cancellation:');
+          if (!pwd) return;
+          const verifyRes = await fetch(`${API_BASE}/api/admin/verify-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: getToken(), password: pwd }),
+          });
+          const verifyData = await verifyRes.json().catch(() => ({}));
+          if (!verifyData.valid) {
+            alert('Incorrect password. Order not cancelled.');
+            return;
+          }
         }
         changeOrderStatus(oid, status);
       }
