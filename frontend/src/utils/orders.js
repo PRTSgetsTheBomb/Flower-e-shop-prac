@@ -12,6 +12,7 @@
  */
 
 const ORDERS_KEY = 'user_orders';
+const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
 
 function getAllOrders() {
   try {
@@ -107,4 +108,20 @@ export function cancelOrder(email, orderId) {
   all[email] = userOrders;
   saveOrders(all);
   return true;
+}
+
+/**
+ * 提交退款申请（带图片）
+ * @param {FormData} formData - 包含 orderId, wcOrderId, reason, message, email, name, images
+ */
+export async function requestRefund(formData) {
+  const res = await fetch(`${API_BASE}/api/refunds`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Refund request failed.');
+  }
+  return res.json();
 }

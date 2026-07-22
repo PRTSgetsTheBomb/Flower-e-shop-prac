@@ -365,6 +365,20 @@ async function loadAll() {
     } catch { }
 
     document.getElementById('lastUpdate').textContent = `Last updated: ${new Date().toLocaleString()}`;
+
+    // 更新退款徽章
+    try {
+      const refRes = await fetchAuth(`${API_BASE}/api/refunds`);
+      if (refRes.ok) {
+        const { refunds } = await refRes.json();
+        const pending = refunds.filter(r => r.status === 'pending').length;
+        const badge = document.getElementById('refundBadge');
+        if (badge) {
+          badge.textContent = pending;
+          badge.style.display = pending > 0 ? '' : 'none';
+        }
+      }
+    } catch { }
   } catch (err) {
     console.error('[Dashboard] Load error:', err);
     showError('Failed to load data. Make sure the server is running on port 5000.');
@@ -2223,3 +2237,108 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.style.userSelect = '';
   }
 });
+
+// ============ Refunds ============
+
+async function showRefunds() {
+  document.getElementById('page-main').style.display = 'none';
+  document.getElementById('tab-refunds').style.display = '';
+  document.getElementById('tab-area-detail').style.display = 'none';
+  await loadRefunds();
+}
+
+function hideRefunds() {
+  document.getElementById('tab-refunds').style.display = 'none';
+  document.getElementById('page-main').style.display = '';
+}
+
+async function loadRefunds() {
+  try {
+    const res = await fetchAuth(`${API_BASE}/api/refunds`);
+    if (!res.ok) return;
+    const { refunds } = await res.json();
+
+    const pending = refunds.filter(r => r.status === 'pending');
+    const processed = refunds.filter(r => r.status !== 'pending');
+
+    // 更新徽章
+    const badge = document.getElementById('refundBadge');
+    if (badge) {
+      badge.textContent = pending.length;
+      badge.style.display = pending.length > 0 ? '' : 'none';
+    }
+
+    // 待处理
+    const pBody = document.getElementById('refundsPendingBody');
+    if (pending.length === 0) {
+      pBody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;padding:20px;">No pending refund requests.</td></tr>';
+    } else {
+      pBody.innerHTML = pending.map(r => `
+        <tr>
+          <td><code>${r.id}</code></td>
+          <td>${r.orderId}${r.wcOrderId ? `<br><small style="color:#999;">WC #${r.wcOrderId}</small>` : ''}</td>
+          <td>${r.name}<br><small style="color:#999;">${r.email}</small></td>
+          <td><strong>${r.reason}</strong>${r.message ? `<br><small>${r.message}</small>` : ''}</td>
+          <td>$${r.orderTotal.toFixed(2)}</td>
+          <td><span style="color:#e74c3c;font-weight:600;">${r.refundRateLabel}</span></td>
+          <td><strong>$${r.refundAmount.toFixed(2)}</strong></td>
+          <td>${(r.images || []).map(img => `<a href="${API_BASE}/api/uploads/${img}" target="_blank" class="refund-img-link">🖼️</a>`).join(' ') || '—'}</td>
+          <td>${new Date(r.createdAt).toLocaleDateString()}</td>
+          <td>
+            <button class="btn-refund-approve" onclick="handleRefund('${r.id}','approve')">Approve</button>
+            <button class="btn-refund-reject" onclick="handleRefund('${r.id}','reject')">Reject</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // 已处理
+    const procBody = document.getElementById('refundsProcessedBody');
+    if (processed.length === 0) {
+      procBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No processed refunds.</td></tr>';
+    } else {
+      procBody.innerHTML = processed.map(r => `
+        <tr>
+          <td><code>${r.id}</code></td>
+          <td>${r.orderId}</td>
+          <td>${r.name}<br><small style="color:#999;">${r.email}</small></td>
+          <td>${r.reason}</td>
+          <td>$${r.refundAmount.toFixed(2)}</td>
+          <td><span style="color:${r.status === 'approved' ? '#065f46' : '#dc3545'};font-weight:600;">${r.status === 'approved' ? 'Approved' : 'Rejected'}</span></td>
+          <td>${r.adminNote || '—'}</td>
+          <td>${new Date(r.updatedAt || r.createdAt).toLocaleDateString()}</td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('refunds-hint').textContent = `Total: ${refunds.length} | Pending: ${pending.length}`;
+  } catch (err) {
+    console.error('[Refunds] Load error:', err);
+  }
+}
+
+async function handleRefund(id, action) {
+  const verb = action === 'approve' ? 'approve' : 'reject';
+  const note = action === 'reject'
+    ? prompt('Reason for rejection (optional):')
+    : '';
+
+  const pwd = await showPwdPrompt(`Confirm to ${verb} refund ${id}`);
+  if (!pwd) return;
+
+  try {
+    const res = await fetchAuth(`${API_BASE}/api/refunds/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, adminNote: note || '' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`Failed: ${err.error || res.statusText}`);
+      return;
+    }
+    await loadRefunds();
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}

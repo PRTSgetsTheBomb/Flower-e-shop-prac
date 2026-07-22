@@ -20,7 +20,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import FadeInUp from '../common/FadeInUp';
 import { useAuth } from '../../context/AuthContext';
-import { getUserOrders } from '../../utils/orders';
+import { getUserOrders, requestRefund } from '../../utils/orders';
 import '../../styles/AccountPage.css';
 
 const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
@@ -41,6 +41,16 @@ function AccountPage() {
     const [error, setError] = useState('');
     const orders = user ? getUserOrders(user.email) : [];
     const [liveStatuses, setLiveStatuses] = useState({});
+
+    // 退款申请弹窗
+    const [refundModal, setRefundModal] = useState(null); // { orderId, wcOrderId, order } | null
+    const [refundReason, setRefundReason] = useState('');
+    const [refundMessage, setRefundMessage] = useState('');
+    const [refundImages, setRefundImages] = useState([]);
+    const [refundSubmitting, setRefundSubmitting] = useState(false);
+    const [refundError, setRefundError] = useState('');
+    const [refundSuccess, setRefundSuccess] = useState(false);
+    const [refundConfirming, setRefundConfirming] = useState(false);
 
     // �?WooCommerce 同步订单状�?
     useEffect(() => {
@@ -76,6 +86,49 @@ function AccountPage() {
         if (s === 'cancelled' || s === 'Cancelled') return 'Cancelled';
         if (s === 'on-hold' || s === 'On Hold') return 'Awaiting Review';
         return s;
+    };
+
+    // 提交退款申请 — 第一步：显示确认
+    const handleRefundSubmit = (e) => {
+        e.preventDefault();
+        if (!refundReason) { setRefundError('Please select a reason.'); return; }
+        setRefundError('');
+        setRefundConfirming(true);
+    };
+
+    // 第二步：确认后实际提交
+    const handleRefundConfirm = async () => {
+        setRefundSubmitting(true);
+        setRefundError('');
+        try {
+            const fd = new FormData();
+            fd.append('orderId', refundModal.orderId);
+            if (refundModal.wcOrderId) fd.append('wcOrderId', refundModal.wcOrderId);
+            fd.append('reason', refundReason);
+            fd.append('message', refundMessage);
+            fd.append('email', user.email);
+            fd.append('name', user.name || '');
+            refundImages.forEach((f) => fd.append('images', f));
+            await requestRefund(fd);
+            setRefundSuccess(true);
+            setRefundConfirming(false);
+        } catch (err) {
+            setRefundError(err.message || 'Failed to submit refund request.');
+        } finally {
+            setRefundSubmitting(false);
+        }
+    };
+
+    const openRefundModal = (order) => {
+        const wcStatus = liveStatuses[order.id]?.status || order.status;
+        if (wcStatus !== 'completed') return;
+        setRefundModal({ orderId: order.id, wcOrderId: order.wooCommerceId, order });
+        setRefundReason('');
+        setRefundMessage('');
+        setRefundImages([]);
+        setRefundError('');
+        setRefundSuccess(false);
+        setRefundConfirming(false);
     };
 
     if (user) {
@@ -141,6 +194,12 @@ function AccountPage() {
                                                     <p className="order-delivery">
                                                         Deliver to: {order.delivery.address}, {order.delivery.suburb} {order.delivery.postcode}
                                                     </p>
+                                                )}
+                                                {(liveStatuses[order.id]?.status || order.status) === 'completed' && (
+                                                    <button
+                                                        className="btn-refund-request"
+                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openRefundModal(order); }}
+                                                    >Request Refund</button>
                                                 )}
                                             </div>
                                         </Link>
@@ -268,6 +327,85 @@ function AccountPage() {
                         </>
                     )}
                 </div>
+
+                {/* 退款申请弹窗 */}
+                {refundModal && (
+                    <div className="refund-overlay" onClick={() => setRefundModal(null)}>
+                        <div className="refund-modal" onClick={(e) => e.stopPropagation()}>
+                            <button className="refund-modal-close" onClick={() => setRefundModal(null)}>&times;</button>
+                            <h3>Request Refund</h3>
+                            {refundSuccess ? (
+                                <div className="refund-success">
+                                    <p>Your refund request has been submitted.</p>
+                                    <p className="refund-success-hint">We will review it and get back to you via email.</p>
+                                    <button className="btn-primary" onClick={() => setRefundModal(null)}>Close</button>
+                                </div>
+                            ) : refundConfirming ? (
+                                <div className="refund-confirm">
+                                    <h4>Confirm Refund Request</h4>
+                                    <div className="refund-confirm-details">
+                                        <p><strong>Order:</strong> {refundModal.orderId}</p>
+                                        <p><strong>Reason:</strong> {refundReason}</p>
+                                        {refundMessage && <p><strong>Details:</strong> {refundMessage}</p>}
+                                        {refundImages.length > 0 && <p><strong>Images:</strong> {refundImages.length} file(s)</p>}
+                                    </div>
+                                    <p className="refund-confirm-warning">Are you sure you want to submit this refund request?</p>
+                                    {refundError && <p className="form-error">{refundError}</p>}
+                                    <div className="refund-confirm-actions">
+                                        <button className="btn-secondary" onClick={() => setRefundConfirming(false)}>Back</button>
+                                        <button className="btn-primary" onClick={handleRefundConfirm} disabled={refundSubmitting}>
+                                            {refundSubmitting ? 'Submitting...' : 'Confirm'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleRefundSubmit}>
+                                    <p className="refund-order-id">Order: {refundModal.orderId}</p>
+                                    <div className="form-group">
+                                        <label>Reason *</label>
+                                        <select value={refundReason} onChange={(e) => setRefundReason(e.target.value)} required>
+                                            <option value="">-- Select a reason --</option>
+                                            <option value="Quality Issue">Quality Issue</option>
+                                            <option value="Late Delivery">Late Delivery</option>
+                                            <option value="Wrong Item">Wrong Item</option>
+                                            <option value="Damaged">Damaged</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Details</label>
+                                        <textarea
+                                            value={refundMessage}
+                                            onChange={(e) => setRefundMessage(e.target.value)}
+                                            placeholder="Please describe the issue..."
+                                            rows={4}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Upload Images (optional)</label>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            onChange={(e) => setRefundImages(Array.from(e.target.files || []))}
+                                        />
+                                        {refundImages.length > 0 && (
+                                            <div className="refund-image-preview">
+                                                {refundImages.map((f, i) => (
+                                                    <span key={i} className="refund-image-name">{f.name}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {refundError && <p className="form-error">{refundError}</p>}
+                                    <button type="submit" className="btn-primary" disabled={refundSubmitting}>
+                                        {refundSubmitting ? 'Submitting...' : 'Submit Request'}
+                                    </button>
+                                </form>
+                            )}
+                        </div>
+                    </div>
+                )}
             </FadeInUp>
         );
     }

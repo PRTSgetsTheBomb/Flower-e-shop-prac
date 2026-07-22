@@ -1,0 +1,48 @@
+[
+  {
+    "id": "REF-1784680809357",
+    "orderId": "ORD-1784616983882",
+    "wcOrderId": "852",
+    "deliveryDate": "2026-07-22",
+    "orderTotal": 237,
+    "orderItems": [
+      "Native Medium Blossom (Best Seller)"
+    ],
+    "refundRate": 1,
+    "refundRateLabel": "100% (same day)",
+    "refundAmount": 237,
+    "reason": "Late Delivery",
+    "message": "",
+    "email": "hao@mmtech.com.au",
+    "name": "Endministrator",
+    "images": [
+      "refund-1784680809231-0e4iph.jpg"
+    ],
+    "status": "rejected",
+    "adminNote": "",
+    "createdAt": "2026-07-22T00:40:09.357Z",
+    "updatedAt": "2026-07-22T00:40:42.223Z"
+  },
+  {
+    "id": "REF-1784680666630",
+    "orderId": "ORD-1784616983882",
+    "wcOrderId": "852",
+    "deliveryDate": "2026-07-22",
+    "orderTotal": 237,
+    "orderItems": [
+      "Native Medium Blossom (Best Seller)"
+    ],
+    "refundRate": 1,
+    "refundRateLabel": "100% (same day)",
+    "refundAmount": 237,
+    "reason": "Damaged",
+    "message": "",
+    "email": "hao@mmtech.com.au",
+    "name": "Endministrator",
+    "images": [],
+    "status": "rejected",
+    "adminNote": "",
+    "createdAt": "2026-07-22T00:37:46.630Z",
+    "updatedAt": "2026-07-22T00:38:12.727Z"
+  }
+]

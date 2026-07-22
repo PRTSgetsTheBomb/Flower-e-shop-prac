@@ -60,7 +60,8 @@
       <span class="header-welcome" id="headerWelcome"></span>
       <span class="last-update" id="lastUpdate"></span>
       <button class="btn-refresh" id="btnRefresh" onclick="loadAll()">Refresh</button>
-      <button class="btn-logout" onclick="clearToken();showLogin(false);">Logout</button>
+      <button class="btn-refunds-nav" onclick="showRefunds()">Refunds <span id="refundBadge" style="display:none;background:#e74c3c;color:#fff;border-radius:10px;padding:0 6px;font-size:11px;margin-left:4px;">0</span></button>
+      <button class="btn-logout" onclick="if(confirm('Are you sure you want to logout?')){clearToken();showLogin(false);}">Logout</button>
     </div>
   </header>
 
@@ -373,6 +374,32 @@
       </div>
 
     </section> -->
+
+    <!-- ============ Refunds ============ -->
+    <section id="tab-refunds" style="display:none;">
+      <div class="section-toolbar">
+        <button class="btn-back" onclick="hideRefunds()">&larr; Back to Dashboard</button>
+        <h2>Refund Requests</h2>
+        <span class="toolbar-hint" id="refunds-hint"></span>
+      </div>
+
+      <h3 style="margin:20px 0 12px;color:#e74c3c;">Pending</h3>
+      <div class="table-card refunds-table-wrap">
+        <table id="refundsPendingTable">
+          <thead><tr><th>ID</th><th>Order</th><th>Customer</th><th>Reason</th><th>Order Total</th><th>Refund Rate</th><th>Refund Amount</th><th>Images</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="refundsPendingBody"><tr><td colspan="10" style="text-align:center;color:#999;padding:20px;">No pending refund requests.</td></tr></tbody>
+        </table>
+      </div>
+
+      <h3 style="margin:30px 0 12px;color:#666;">Processed</h3>
+      <div class="table-card refunds-table-wrap">
+        <table id="refundsProcessedTable">
+          <thead><tr><th>ID</th><th>Order</th><th>Customer</th><th>Reason</th><th>Refund Amount</th><th>Status</th><th>Admin Note</th><th>Date</th></tr></thead>
+          <tbody id="refundsProcessedBody"><tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No processed refunds.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
   </main>
 
   <script src="app.js"></script>

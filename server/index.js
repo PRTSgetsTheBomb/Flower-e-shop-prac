@@ -8,7 +8,32 @@ app.use(cors());
 app.use(express.json());
 
 // ---------- 中间件 ----------
+const wcApi = require('./lib/woocommerce');
 app.use(require('./routes/stripe'));
+
+// ---------- 退款管理（POST 无需 admin，GET/PUT 内部校验）----------
+const { registerRefundRoutes } = require('./routes/refunds');
+registerRefundRoutes(app, wcApi, requireAdmin);
+
+// ---------- 联系表单（公开）----------
+const { sendContactForm } = require('./services/mail');
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, subject, message } = req.body;
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: 'Name, email, and message are required.' });
+    }
+    const result = await sendContactForm({ name, email, subject, message });
+    if (result.success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ error: 'Failed to send message. Please try again later.' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use(requireAdmin);
 
 // ---------- 路由模块 ----------
@@ -18,7 +43,6 @@ app.use(require('./routes/analytics'));
 app.use(require('./routes/wc-proxy'));
 
 // ---------- 订单状态管理 ----------
-const wcApi = require('./lib/woocommerce');
 const { registerOrderRoutes } = require('./services/order-routes');
 registerOrderRoutes(app, wcApi);
 

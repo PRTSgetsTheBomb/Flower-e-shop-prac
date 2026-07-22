@@ -20,23 +20,38 @@ function ContactPage() {
     const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
     const [sent, setSent] = useState(false);
     const [error, setError] = useState('');
+    const [sending, setSending] = useState(false);
+
+    const API_BASE = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        // 简单前端校�?
         if (!form.name || !form.email || !form.message) {
             setError('Please fill in name, email and message.');
             return;
         }
-        // 模拟发送（后续对接真实 API 替换�?fetch�?
-        setSent(true);
-        setForm({ name: '', email: '', subject: '', message: '' });
-        setTimeout(() => setSent(false), 1500);
+        setSending(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/contact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Failed to send message.');
+            setSent(true);
+            setForm({ name: '', email: '', subject: '', message: '' });
+            setTimeout(() => setSent(false), 3000);
+        } catch (err) {
+            setError(err.message || 'Something went wrong. Please try again.');
+        } finally {
+            setSending(false);
+        }
     };
 
     return (
@@ -81,7 +96,7 @@ function ContactPage() {
                         </div>
                     </div>
 
-                    {/* ---- 右侧：联系表�?---- */}
+                    {/* ---- 右侧：联系表单---- */}
                     <div className="contact-right">
                         <h2 className="contact-form-title">Send us a message</h2>
                         <form onSubmit={handleSubmit} className="contact-form">
@@ -102,8 +117,8 @@ function ContactPage() {
                                 <textarea id="message" name="message" rows={5} value={form.message} onChange={handleChange} placeholder="Write your message here..." required />
                             </div>
                             {error && <p className="form-error">{error}</p>}
-                            <button type="submit" className={`contact-submit${sent ? ' sent' : ''}`}>
-                                {sent ? 'Sent √' : 'Send Message'}
+                            <button type="submit" className={`contact-submit${sent ? ' sent' : ''}`} disabled={sending}>
+                                {sending ? 'Sending...' : sent ? 'Sent √' : 'Send Message'}
                             </button>
                         </form>
                     </div>

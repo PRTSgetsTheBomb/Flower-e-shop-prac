@@ -378,4 +378,119 @@ async function sendOrderCancelled({ to, name, orderId }) {
   }
 }
 
-module.exports = { sendOrderConfirmation, sendOrderShipped, sendOrderReadyForPickup, sendOrderCompleted, sendOrderCancelled, sendOrderCancelled };
+/**
+ * 发送退款审批结果通知
+ */
+async function sendRefundUpdate({ to, name, orderId, refundAmount, refundRateLabel, status, adminNote }) {
+  const isApproved = status === 'approved';
+  const headerBg = isApproved ? '#065f46' : '#dc3545';
+  const headerSub = isApproved ? 'Refund Approved' : 'Refund Declined';
+  const headerSubColor = isApproved ? '#d4edda' : '#f8d7da';
+  const bodyText = isApproved
+    ? `Your refund request for order <strong>#${orderId}</strong> has been <strong>approved</strong>.`
+    : `Your refund request for order <strong>#${orderId}</strong> has been <strong>declined</strong>.`;
+
+  const html = `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+  <table width="100%" style="background:#f4f4f4;padding:20px;">
+    <tr><td align="center">
+      <table width="600" style="background:#fff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:${headerBg};padding:30px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:24px;">Pisces Flower</h1>
+          <p style="color:${headerSubColor};margin:8px 0 0;font-size:14px;">${headerSub}</p>
+        </td></tr>
+        <tr><td style="padding:30px;">
+          <p style="font-size:16px;color:#333;">Hi <strong>${name}</strong>,</p>
+          <p style="color:#555;line-height:1.6;">${bodyText}</p>
+          <table style="margin:20px 0;width:100%;background:#f8f9fa;padding:15px;border-radius:6px;">
+            <tr><td style="color:#666;font-size:14px;padding:4px 0;">Order</td><td style="text-align:right;font-weight:bold;color:#333;">#${orderId}</td></tr>
+            <tr><td style="color:#666;font-size:14px;padding:4px 0;">Refund Amount</td><td style="text-align:right;font-weight:bold;color:#333;">$${refundAmount.toFixed(2)}</td></tr>
+            <tr><td style="color:#666;font-size:14px;padding:4px 0;">Refund Rate</td><td style="text-align:right;color:#333;">${refundRateLabel}</td></tr>
+            ${adminNote ? `<tr><td colspan="2" style="color:#666;font-size:14px;padding-top:8px;border-top:1px solid #ddd;">Note: ${adminNote}</td></tr>` : ''}
+          </table>
+          <p style="color:#555;line-height:1.6;font-size:14px;">
+            If you have any questions, please <a href="${process.env.SITE_URL || 'http://localhost:3000'}/contact" style="color:#fd7e14;">contact us</a>.
+          </p>
+        </td></tr>
+        <tr><td style="background:${headerBg};padding:20px;text-align:center;">
+          <p style="color:${headerSubColor};margin:0;font-size:12px;">Pisces Flower &mdash; Fresh flowers delivered with love.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to,
+      subject: `${isApproved ? 'Refund Approved' : 'Refund Declined'} — Order #${orderId} — Pisces Flower`,
+      html,
+    });
+    console.log('[Mail] Refund update sent to', to, '| ID:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error('[Mail] Failed to send refund update:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 发送联系表单内容给店主
+ */
+async function sendContactForm({ name, email, subject, message }) {
+  const html = `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+  <table width="100%" style="background:#f4f4f4;padding:20px;">
+    <tr><td align="center">
+      <table width="600" style="background:#fff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#2d5a27;padding:30px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:20px;">New Contact Form Submission</h1>
+        </td></tr>
+        <tr><td style="padding:24px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr><td style="padding:8px 0;color:#666;font-size:14px;width:80px;">Name</td><td style="color:#222;font-weight:600;">${name}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;font-size:14px;">Email</td><td style="color:#222;"><a href="mailto:${email}" style="color:#2d5a27;">${email}</a></td></tr>
+            <tr><td style="padding:8px 0;color:#666;font-size:14px;">Subject</td><td style="color:#222;">${subject || '(no subject)'}</td></tr>
+            <tr><td colspan="2" style="padding:16px 0 8px;color:#666;font-size:14px;border-top:1px solid #eee;">Message</td></tr>
+            <tr><td colspan="2" style="color:#333;line-height:1.7;padding-bottom:8px;">${message.replace(/\n/g, '<br>')}</td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="background:#f8f9fa;padding:16px 24px;text-align:center;font-size:12px;color:#999;">
+          This message was sent from the Pisces Flower website contact form.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  try {
+    const ownerEmail = process.env.CONTACT_EMAIL || process.env.EMAIL_FROM;
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: ownerEmail,
+      replyTo: email,
+      subject: `[Contact] ${subject || 'New message from ' + name} — Pisces Flower`,
+      html,
+    });
+    console.log('[Mail] Contact form sent to', ownerEmail, '| ID:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error('[Mail] Failed to send contact form:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+module.exports = {
+  sendOrderConfirmation,
+  sendOrderShipped,
+  sendOrderReadyForPickup,
+  sendOrderCompleted,
+  sendOrderCancelled,
+  sendRefundUpdate,
+  sendContactForm,
+};
