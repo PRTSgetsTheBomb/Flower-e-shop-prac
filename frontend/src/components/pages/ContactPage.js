@@ -77,7 +77,7 @@ function ContactPage() {
                             </div>
                             <div className="contact-row">
                                 <span className="contact-label">Hours</span>
-                                <span className="contact-value">Mon–Sat 9:00 am �?5:00 pm</span>
+                                <span className="contact-value">Mon–Sat 9:00 am - 5:00 pm</span>
                             </div>
                         </div>
 

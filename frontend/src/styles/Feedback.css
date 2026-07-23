@@ -34,7 +34,7 @@
 }
 
 .feedback-name {
-    Font-family: "Playfair Display", serif;
+    font-family: var(--font-subheading);
     font-size: 1.25em;
     font-weight: 600;
     color: #222;

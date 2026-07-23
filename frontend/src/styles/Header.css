@@ -88,10 +88,10 @@
 }
 
 .logo {
-  font-family: "Pompiere", sans-serif;
-  font-weight: 400;
+  font-family: var(--font-display);
+  font-weight: 700;
   font-style: normal;
-  font-size: 3em;
+  font-size: 2.4em;
   color: var(--color-primary) !important;
 }
 

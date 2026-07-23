@@ -162,7 +162,6 @@ function AccountPage() {
 
                     {tab === 'orders' && (
                         <div className="account-card">
-                            <h2>Orders</h2>
                             {ordersLoading ? (
                                 <div className="account-empty"><p>Loading orders...</p></div>
                             ) : orders.length === 0 ? (

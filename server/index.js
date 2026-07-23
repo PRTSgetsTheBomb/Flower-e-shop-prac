@@ -128,6 +128,11 @@ app.post('/api/ai/analyze', async (req, res) => {
     } catch (e) {
       console.warn('[AI] History fetch failed:', e.message);
     }
+    // 退款数据
+    let refunds = [];
+    try {
+      refunds = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'refunds.json'), 'utf-8'));
+    } catch {}
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -141,7 +146,8 @@ app.post('/api/ai/analyze', async (req, res) => {
       monthlyTrend,
       todaySummary,
       dateRange,
-      historyOrders
+      historyOrders,
+      refunds,
     },
       question,
       model || '',

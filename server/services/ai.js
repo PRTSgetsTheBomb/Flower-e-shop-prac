@@ -125,7 +125,7 @@ function setCached(key, value) {
  * @returns {string} 结构化文本摘要
  */
 function buildContext(data) {
-    const { overview, topProducts, topAreas, monthlyTrend, todaySummary, dateRange, historyOrders } = data;
+    const { overview, topProducts, topAreas, monthlyTrend, todaySummary, dateRange, historyOrders, refunds } = data;
 
     let ctx = '';
 
@@ -209,6 +209,23 @@ function buildContext(data) {
         ctx += '\n';
     }
 
+    // 退款数据
+    if (refunds && refunds.length > 0) {
+        const pending = refunds.filter(r => r.status === 'pending');
+        const approved = refunds.filter(r => r.status === 'approved');
+        const rejected = refunds.filter(r => r.status === 'rejected');
+        const reasons = {};
+        refunds.forEach(r => { reasons[r.reason] = (reasons[r.reason] || 0) + 1; });
+        ctx += `[Refund Requests — ${refunds.length} total]\n`;
+        ctx += `- Pending: ${pending.length}, Approved: ${approved.length}, Rejected: ${rejected.length}\n`;
+        ctx += `- Reasons: ${Object.entries(reasons).map(([k,v]) => `${k}(${v})`).join(', ')}\n`;
+        if (approved.length > 0) {
+            const totalRefunded = approved.reduce((s, r) => s + (r.refundAmount || 0), 0);
+            ctx += `- Total Refunded: $${totalRefunded.toFixed(2)}\n`;
+        }
+        ctx += '\n';
+    }
+
     return ctx;
 }
 
@@ -222,7 +239,7 @@ Guidelines:
 - Only mention data that actually exists in the provided context. Do not fabricate.
 - If the data is insufficient to answer the question, say so honestly.- For questions about totals, rankings, or "most/best/which", refer to the aggregated summary data (Overview, Products Top, Areas Top) rather than counting individual orders. The summary data is pre-computed and authoritative.- All amounts are in Australian dollars (AUD).
 - When answering questions about totals or rankings, aggregate across ALL orders in the Full Order History, not just the recent ones.
-`;
+- If the user asks about refunds, return rates, or refund reasons, refer to the [Refund Requests] section. This section shows pending/approved/rejected counts, refund reasons distribution, and total refunded amount.`;
 
 // ----- 核心API -----
 /**
