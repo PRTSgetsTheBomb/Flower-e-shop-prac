@@ -39,8 +39,36 @@ function AccountPage() {
     const [password, setPassword] = useState('');
     const [showPwd, setShowPwd] = useState(false); // 密码显隐切换
     const [error, setError] = useState('');
-    const orders = user ? getUserOrders(user.email) : [];
+    const [orders, setOrders] = useState([]);
+    const [ordersLoading, setOrdersLoading] = useState(true);
     const [liveStatuses, setLiveStatuses] = useState({});
+
+    // 从服务端 + localStorage 合并订单
+    useEffect(() => {
+        if (!user) { setOrdersLoading(false); return; }
+        setOrdersLoading(true);
+        (async () => {
+            const localOrders = getUserOrders(user.email);
+            try {
+                const token = localStorage.getItem('jwt_token');
+                if (!token) throw new Error('No token');
+                const res = await fetch(`${API_BASE}/api/my-orders`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) throw new Error('API error');
+                const { orders: serverOrders } = await res.json();
+
+                // 合并：以服务端为准，去重（按 wooCommerceId），保留本地无 WC ID 的旧订单
+                const wcIds = new Set(serverOrders.map(o => o.wooCommerceId).filter(Boolean));
+                const localOnly = localOrders.filter(o => !o.wooCommerceId || !wcIds.has(o.wooCommerceId));
+                setOrders([...serverOrders, ...localOnly]);
+            } catch {
+                setOrders(localOrders);
+            } finally {
+                setOrdersLoading(false);
+            }
+        })();
+    }, [user]);
 
     // 退款申请弹窗
     const [refundModal, setRefundModal] = useState(null); // { orderId, wcOrderId, order } | null
@@ -52,29 +80,16 @@ function AccountPage() {
     const [refundSuccess, setRefundSuccess] = useState(false);
     const [refundConfirming, setRefundConfirming] = useState(false);
 
-    // �?WooCommerce 同步订单状�?
+    // 从服务端订单构建 liveStatus 映射
     useEffect(() => {
-        if (!orders.length) return;
-        const wcOrders = orders.filter(o => o.wooCommerceId);
-        if (!wcOrders.length) return;
-
-        const fetchStatus = async (order) => {
-            try {
-                const res = await fetch(`${API_BASE}/api/order/${order.wooCommerceId}`);
-                if (!res.ok) return null;
-                const data = await res.json();
-                // 已完成的订单不因后台操作改变状态
-                if (data.status === 'trash' && order.status === 'completed') return null;
-                return { id: order.id, status: data.status, number: data.number };
-            } catch { return null; }
-        };
-
-        Promise.all(wcOrders.map(fetchStatus)).then(results => {
-            const map = {};
-            results.forEach(r => { if (r && r.status !== 'trash') map[r.id] = r; });
-            setLiveStatuses(map);
+        const map = {};
+        orders.forEach(o => {
+            if (o.wooCommerceId) {
+                map[o.id] = { id: o.id, status: o.status, number: o.number };
+            }
         });
-    }, [orders.length]);
+        setLiveStatuses(map);
+    }, [orders]);
 
     const statusLabel = (s, order) => {
         const isPickup = order.items?.every(item => item.deliveryMethod === 'pickup');
@@ -148,22 +163,25 @@ function AccountPage() {
                     {tab === 'orders' && (
                         <div className="account-card">
                             <h2>Orders</h2>
-                            {orders.length === 0 ? (
+                            {ordersLoading ? (
+                                <div className="account-empty"><p>Loading orders...</p></div>
+                            ) : orders.length === 0 ? (
                                 <div className="account-empty">
                                     <p>No orders yet.</p>
                                     <Link to="/collections/available-today" className="btn-primary">Go to store</Link>
                                 </div>
                             ) : (
                                 <div className="orders-list">
-                                    {orders.map((order) => (
-                                        <Link key={order.id} to={`/order/${order.id}`} className="order-card-link">
-                                            <div className="order-card">
+                                    {orders.map((order) => {
+                                        const liveStatus = liveStatuses[order.id];
+                                        const currentStatus = order.status === 'Cancelled' ? 'Cancelled' : (liveStatus?.status || order.status);
+                                        return (
+                                            <div key={order.id} className="order-card" onClick={() => navigate(`/order/${order.id}`)}>
                                                 <div className="order-header">
-                                                    <span className="order-id">{liveStatuses[order.id]?.number ? `#${liveStatuses[order.id].number}` : order.id}</span>
-                                                    <span className="order-status">{statusLabel(
-                                                        order.status === 'Cancelled' ? 'Cancelled' : (liveStatuses[order.id]?.status || order.status),
-                                                        order
-                                                    )}</span>
+                                                    <span className="order-id">{liveStatus?.number ? `#${liveStatus.number}` : order.id}</span>
+                                                    <span className={`order-status-badge status-${currentStatus}`}>
+                                                        {statusLabel(currentStatus, order)}
+                                                    </span>
                                                 </div>
                                                 <p className="order-date">{new Date(order.date).toLocaleDateString()}</p>
                                                 <div className="order-items">
@@ -185,25 +203,19 @@ function AccountPage() {
                                                     <span>Total</span>
                                                     <strong>${order.total.toFixed(2)}</strong>
                                                 </div>
-                                                {user.name && (
-                                                    <p className="order-delivery">
-                                                        Paid by <strong>{user.name}</strong>
-                                                    </p>
-                                                )}
                                                 {order.delivery?.address && (
                                                     <p className="order-delivery">
-                                                        Deliver to: {order.delivery.address}, {order.delivery.suburb} {order.delivery.postcode}
+                                                        {order.delivery.suburb} {order.delivery.postcode}
                                                     </p>
                                                 )}
-                                                {(liveStatuses[order.id]?.status || order.status) === 'completed' && (
-                                                    <button
-                                                        className="btn-refund-request"
-                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openRefundModal(order); }}
-                                                    >Request Refund</button>
-                                                )}
+                                                <div onClick={(e) => e.stopPropagation()}>
+                                                    {currentStatus === 'completed' && (
+                                                        <button className="btn-refund-request" onClick={() => openRefundModal(order)}>Request Refund</button>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </Link>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

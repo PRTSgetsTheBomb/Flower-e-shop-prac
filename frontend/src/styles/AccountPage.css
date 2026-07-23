@@ -28,6 +28,17 @@
   margin: 0;
 }
 
+/* 订单卡片容器加宽 */
+.account-card:has(.orders-list) {
+  max-width: 1400px;
+}
+@media (max-width: 768px) {
+  .account-card:has(.orders-list) {
+    max-width: 100%;
+    padding: 12px;
+  }
+}
+
 .form-group {
   margin-bottom: 18px;
 }
@@ -62,7 +73,8 @@
 }
 
 .password-wrapper input {
-  padding-right: 40px; /* 给按钮留空间 */
+  padding-right: 40px;
+  /* 给按钮留空间 */
 }
 
 .pwd-toggle {
@@ -363,6 +375,7 @@
   transition: background 0.2s;
   white-space: nowrap;
 }
+
 .btn-cancel-order:hover {
   background: #c82333;
 }
@@ -599,64 +612,68 @@
   text-decoration: underline;
 }
 
-/* -- Orders list (logged in) -- */
+/* -- Orders 卡片网格 -- */
 .orders-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 600px) {
+  .orders-list {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }
 
 .order-card {
   background: var(--color-white);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 16px;
-  transition: box-shadow var(--transition-normal), border-color var(--transition-normal);
+  padding: 14px;
+  cursor: pointer;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.order-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-light);
 }
 
 .order-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
-}
-
-.order-id {
-  font-size: 0.85em;
-  font-weight: 600;
-  color: #888;
-}
-
-.order-status {
-  font-size: 0.8em;
-  font-weight: 600;
-  color: #2ecc71;
-  background: #eafaf1;
-  padding: 2px 10px;
-  border-radius: 12px;
-}
-
-.order-date {
-  font-size: 0.8em;
-  color: #bbb;
-  margin: 0 0 12px;
+  margin-bottom: 2px;
 }
 
 .order-items {
   border-top: 1px solid #f5f5f5;
-  padding-top: 10px;
+  padding-top: 8px;
 }
 
 .order-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 0;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.order-id {
+  font-size: 0.82em;
+  font-weight: 600;
+  color: #888;
+}
+
+.order-date {
+  font-size: 0.75em;
+  color: #bbb;
+  margin: 0 0 8px;
 }
 
 .order-item img {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   object-fit: cover;
   border-radius: 6px;
   flex-shrink: 0;
@@ -669,17 +686,20 @@
 
 .order-item-name {
   display: block;
-  font-size: 0.9em;
+  font-size: 0.82em;
   color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-item-qty {
-  font-size: 0.8em;
+  font-size: 0.75em;
   color: #999;
 }
 
 .order-item-price {
-  font-size: 0.9em;
+  font-size: 0.82em;
   font-weight: 600;
   color: #222;
   flex-shrink: 0;
@@ -689,48 +709,58 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 10px;
-  margin-top: 6px;
+  padding-top: 8px;
+  margin-top: 4px;
   border-top: 1px solid #eee;
-  font-size: 0.95em;
+  font-size: 0.88em;
   color: #222;
 }
 
 .order-delivery {
-  font-size: 0.8em;
+  font-size: 0.75em;
   color: #999;
-  margin: 8px 0 0;
-}
-
-/* 可点击的订单卡片 */
-.order-card-link {
-  text-decoration: none;
-  color: inherit;
-  display: block;
-}
-
-.order-card-link:hover .order-card {
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-primary-light);
+  margin: 4px 0 0;
 }
 
 .order-item-more {
-  font-size: 0.85em;
+  font-size: 0.75em;
   color: #999;
-  padding: 6px 0;
+  padding: 2px 0;
   text-align: center;
 }
+
+/* 状态标签 */
+.order-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.68em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-processing { background: #fff3cd; color: #856404; }
+.status-fulfilled, .status-shipped { background: #dbeafe; color: #1e40af; }
+.status-readyforpickup { background: #d1fae5; color: #065f46; }
+.status-completed { background: #eafaf1; color: #2e7d32; }
+.status-cancelled, .status-Cancelled { background: #fee2e2; color: #dc2626; }
+.status-on-hold, .status-On { background: #fef3c7; color: #92400e; }
+
+/* 响应式 */
+@media (max-width: 1100px) { .orders-list { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 880px)  { .orders-list { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 620px)  { .orders-list { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 400px)  { .orders-list { grid-template-columns: 1fr; } }
 
 /* -- 退款申请按钮 -- */
 .btn-refund-request {
   display: inline-block;
-  margin-top: 10px;
-  padding: 6px 16px;
+  margin-top: 6px;
+  padding: 4px 12px;
   background: none;
   color: #e74c3c;
   border: 1px solid #e74c3c;
   border-radius: 6px;
-  font-size: 0.85em;
+  font-size: 0.78em;
   cursor: pointer;
   transition: all 0.2s;
 }

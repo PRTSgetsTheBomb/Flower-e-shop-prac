@@ -48,10 +48,23 @@ async function verifyToken(token) {
         if (payload.exp && payload.exp * 1000 < Date.now()) return null;
         const uid = payload.data?.user?.id;
         if (!uid) return null;
-        return { id: Number(uid), name: payload.data?.user?.display_name || 'User' };
+
+        // WordPress JWT 不包含 email，从 WooCommerce 查询
+        let email = '';
+        try {
+            const wcApi = require('../lib/woocommerce');
+            const { data: customer } = await wcApi.get(`customers/${uid}`);
+            email = customer.email || customer.billing?.email || '';
+        } catch { /* 客户不存在则 email 为空 */ }
+
+        return {
+            id: Number(uid),
+            name: payload.data?.user?.display_name || 'User',
+            email,
+        };
     } catch {
         return null;
     }
 }
 
-module.exports = { requireAdmin, verifyAdmin };
+module.exports = { requireAdmin, verifyAdmin, verifyToken };

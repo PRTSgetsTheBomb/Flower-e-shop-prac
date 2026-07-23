@@ -34,6 +34,62 @@ app.post('/api/contact', async (req, res) => {
   }
 });
 
+// ---------- 用户订单同步（跨设备）----------
+const { verifyToken } = require('./middleware/adminAuth');
+app.get('/api/my-orders', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const user = await verifyToken(authHeader.split(' ')[1]);
+    if (!user || !user.email) return res.status(401).json({ error: 'Unauthorized' });
+
+    // 从 WooCommerce 按 billing email 拉取订单
+    const { data: wcOrders } = await wcApi.get('orders', {
+      search: user.email,
+      per_page: 50,
+      orderby: 'date',
+      order: 'desc',
+    });
+
+    const orders = wcOrders.map(o => {
+      const findMeta = (key) => o.meta_data?.find(m => m.key === key)?.value || null;
+      return {
+        id: `WC-${o.id}`,
+        wooCommerceId: o.id,
+        number: o.number,
+        status: findMeta('dashboard_status') || o.status,
+        date: o.date_created,
+        total: parseFloat(o.total || 0),
+        items: (o.line_items || []).map(item => ({
+          id: item.product_id,
+          name: item.name,
+          slug: item.slug || '',
+          qty: item.quantity,
+          price: parseFloat(item.price || 0),
+          image: item.image?.src || null,
+          deliveryDate: item.meta_data?.find(m => m.key === 'Delivery Date')?.value || '',
+          deliveryMethod: item.meta_data?.find(m => m.key === 'Delivery Method')?.value
+            || (o.meta_data?.find(m => m.key === 'delivery_method')?.value === 'Delivery' ? 'delivery' : 'pickup'),
+          giftMessage: item.meta_data?.find(m => m.key === 'Gift Message')?.value || '',
+        })),
+        delivery: {
+          address: o.shipping?.address_1 || '',
+          suburb: o.shipping?.city || '',
+          postcode: o.shipping?.postcode || '',
+          phone: o.shipping?.phone || o.billing?.phone || '',
+        },
+      };
+    });
+
+    res.json({ orders });
+  } catch (err) {
+    console.error('[MyOrders] Error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch orders.' });
+  }
+});
+
 app.use(requireAdmin);
 
 // ---------- 路由模块 ----------
