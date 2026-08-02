@@ -252,6 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!authed) return;
 
   loadAll();
+  initRefundFilterButtons();
 
   // 每 30 分钟自动刷新数据
   const refreshTimer = setInterval(() => {
@@ -2240,16 +2241,319 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ============ Refunds ============
 
+// 退款分析图表实例（用于销毁重建）
+let chartRefundReasons = null;
+let chartRefundMonthly = null;
+
 async function showRefunds() {
   document.getElementById('page-main').style.display = 'none';
   document.getElementById('tab-refunds').style.display = '';
   document.getElementById('tab-area-detail').style.display = 'none';
-  await loadRefunds();
+
+  // 默认加载全部数据
+  document.getElementById('refundFilterStart').value = '';
+  document.getElementById('refundFilterEnd').value = '';
+  document.getElementById('refundFilterLabel').textContent = 'All';
+
+  await Promise.all([
+    loadRefunds(),
+    loadRefundAnalytics(),
+  ]);
 }
 
 function hideRefunds() {
   document.getElementById('tab-refunds').style.display = 'none';
   document.getElementById('page-main').style.display = '';
+}
+
+// 退款日期筛选按钮
+function initRefundFilterButtons() {
+  const btnMonth = document.getElementById('btnRefundThisMonth');
+  const btnYear = document.getElementById('btnRefundThisYear');
+  const btnAll = document.getElementById('btnRefundAll');
+  const startEl = document.getElementById('refundFilterStart');
+  const endEl = document.getElementById('refundFilterEnd');
+  const labelEl = document.getElementById('refundFilterLabel');
+
+  if (!btnMonth) return; // 避免重复绑定
+
+  btnMonth.addEventListener('click', () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    startEl.value = `${y}-${m}-01`;
+    endEl.value = `${y}-${m}-${String(new Date(y, now.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
+    labelEl.textContent = `${now.toLocaleString('default', { month: 'long' })} ${y}`;
+    loadRefundAnalytics(startEl.value, endEl.value);
+  });
+
+  btnYear.addEventListener('click', () => {
+    const y = new Date().getFullYear();
+    startEl.value = `${y}-01-01`;
+    endEl.value = `${y}-12-31`;
+    labelEl.textContent = `Year ${y}`;
+    loadRefundAnalytics(startEl.value, endEl.value);
+  });
+
+  btnAll.addEventListener('click', () => {
+    startEl.value = '';
+    endEl.value = '';
+    labelEl.textContent = 'All';
+    loadRefundAnalytics();
+  });
+
+  // 日期输入变化时自动刷新
+  [startEl, endEl].forEach(el => {
+    el.addEventListener('change', () => {
+      const sd = startEl.value;
+      const ed = endEl.value;
+      labelEl.textContent = sd || ed ? `${sd || '…'} — ${ed || '…'}` : 'All';
+      loadRefundAnalytics(sd, ed);
+    });
+  });
+}
+
+/**
+ * 加载退款分析数据并渲染图表
+ */
+async function loadRefundAnalytics(startDate, endDate) {
+  try {
+    // 退款分析数据
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    const url = `${API_BASE}/api/refunds/analytics?${params.toString()}`;
+
+    const res = await fetchAuth(url);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // 更新 KPI
+    const { overview, reasonCounts, monthly } = data;
+    document.getElementById('kpi-refundTotal').textContent = overview.total;
+    document.getElementById('kpi-refundApproved').textContent = `$${overview.approvedAmount.toFixed(2)}`;
+    document.getElementById('kpi-refundAppCount').textContent = overview.approved;
+    document.getElementById('kpi-refundRejCount').textContent = overview.rejected;
+
+    // 获取订单总数（用于计算退款率）
+    let orderMonthly = {};
+    try {
+      const sumRes = await fetchAuth(`${API_BASE}/api/analytics/summary`);
+      if (sumRes.ok) {
+        const sumData = await sumRes.json();
+        (sumData.monthly || []).forEach(m => {
+          orderMonthly[m.month] = m.orders || 0;
+        });
+      }
+    } catch { }
+
+    // 渲染图表
+    renderRefundReasonChart(reasonCounts);
+    renderRefundMonthlyChart(monthly, orderMonthly);
+
+  } catch (err) {
+    console.error('[Refund Analytics] Error:', err);
+  }
+}
+
+/**
+ * Donut 图：退款原因分布
+ */
+function renderRefundReasonChart(reasonCounts) {
+  const canvas = document.getElementById('chartRefundReasons');
+  if (!canvas) return;
+
+  if (chartRefundReasons) chartRefundReasons.destroy();
+
+  const labels = Object.keys(reasonCounts);
+  const values = Object.values(reasonCounts);
+
+  if (labels.length === 0) {
+    // 空状态
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#999';
+    ctx.textAlign = 'center';
+    ctx.fillText('No refund data', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  const colors = [
+    '#e74c3c', '#f39c12', '#3498db', '#2ecc71', '#9b59b6',
+    '#1abc9c', '#e67e22', '#2980b9', '#c0392b', '#8e44ad',
+  ];
+
+  chartRefundReasons = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map((_, i) => colors[i % colors.length]),
+        borderWidth: 2,
+        borderColor: '#fff',
+        hoverBorderColor: '#f0f2f5',
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            padding: 16,
+            usePointStyle: true,
+            pointStyleWidth: 10,
+            font: { size: 12 },
+            color: '#1a1a2e',
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = values.reduce((a, b) => a + b, 0);
+              const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+              return ` ${ctx.label}: ${ctx.raw} (${pct}%)`;
+            },
+          },
+        },
+      },
+      cutout: '55%',
+    },
+  });
+}
+
+/**
+ * 柱状图：月度退款数量 + 退款率折线
+ */
+function renderRefundMonthlyChart(monthly, orderMonthly) {
+  const canvas = document.getElementById('chartRefundMonthly');
+  if (!canvas) return;
+
+  if (chartRefundMonthly) chartRefundMonthly.destroy();
+
+  if (monthly.length === 0) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#999';
+    ctx.textAlign = 'center';
+    ctx.fillText('No refund data for selected period', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  const months = monthly.map(m => m.month);
+  const approvedData = monthly.map(m => m.approved || 0);
+  const rejectedData = monthly.map(m => m.rejected || 0);
+  const pendingData = monthly.map(m => Math.max(0, m.count - (m.approved || 0) - (m.rejected || 0)));
+
+  // 退款率（基于 approved 数量 / 订单数）
+  const rates = monthly.map(m => {
+    const orders = orderMonthly[m.month] || 0;
+    const refunded = m.approved || 0;
+    return orders > 0 ? +((refunded / orders) * 100).toFixed(1) : null;
+  });
+
+  const datasets = [
+    {
+      label: 'Approved',
+      data: approvedData,
+      backgroundColor: '#27ae60',
+      borderColor: '#1e8449',
+      borderWidth: 1,
+      borderRadius: { topLeft: 4, topRight: 4 },
+      yAxisID: 'y',
+      order: 3,
+    },
+    {
+      label: 'Pending',
+      data: pendingData,
+      backgroundColor: '#f39c12',
+      borderColor: '#d68910',
+      borderWidth: 1,
+      yAxisID: 'y',
+      order: 3,
+    },
+    {
+      label: 'Rejected',
+      data: rejectedData,
+      backgroundColor: '#e74c3c',
+      borderColor: '#c0392b',
+      borderWidth: 1,
+      borderRadius: { bottomLeft: 4, bottomRight: 4 },
+      yAxisID: 'y',
+      order: 3,
+    },
+  ];
+
+  // 只有当至少有部分月份有退款率数据时才显示折线
+  const hasRateData = rates.some(r => r !== null);
+  if (hasRateData) {
+    datasets.push({
+      label: 'Refund Rate %',
+      data: rates,
+      type: 'line',
+      borderColor: '#1a73e8',
+      backgroundColor: '#1a73e833',
+      borderWidth: 2.5,
+      pointRadius: 4,
+      pointBackgroundColor: '#1a73e8',
+      tension: 0.3,
+      yAxisID: 'y1',
+      order: 1,
+    });
+  }
+
+  chartRefundMonthly = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: months, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { usePointStyle: true, padding: 20, font: { size: 12 } },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              if (ctx.dataset.label === 'Refund Rate %') {
+                return ` Refund Rate: ${ctx.raw}%`;
+              }
+              return ` ${ctx.dataset.label}: ${ctx.raw}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          stacked: true,
+          grid: { display: false },
+        },
+        y: {
+          stacked: true,
+          type: 'linear',
+          position: 'left',
+          title: { display: true, text: 'Refund Count' },
+          beginAtZero: true,
+          ticks: { stepSize: 1 },
+          grid: { color: '#f0f2f5' },
+        },
+        y1: {
+          type: 'linear',
+          position: 'right',
+          title: { display: true, text: 'Refund Rate (%)' },
+          beginAtZero: true,
+          max: 100,
+          grid: { drawOnChartArea: false },
+          ticks: { callback: (v) => v + '%' },
+        },
+      },
+    },
+  });
 }
 
 async function loadRefunds() {
@@ -2338,6 +2642,7 @@ async function handleRefund(id, action) {
       return;
     }
     await loadRefunds();
+    await loadRefundAnalytics();
   } catch (err) {
     alert('Error: ' + err.message);
   }

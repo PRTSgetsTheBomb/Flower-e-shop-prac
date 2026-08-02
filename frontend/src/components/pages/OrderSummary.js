@@ -21,23 +21,65 @@ function OrderSummary() {
     const { orderId } = useParams();
     const { user } = useAuth();
     const [liveStatus, setLiveStatus] = useState(null);
+    const [serverOrder, setServerOrder] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    // 判断是否为服务端订单（WC-xxx 格式）
+    const isWcOrder = orderId?.startsWith('WC-');
+    const wcNumericId = isWcOrder ? orderId.replace('WC-', '') : null;
 
     useEffect(() => {
-        const ord = user ? getOrderById(user.email, orderId) : null;
-        const wcId = ord?.wooCommerceId;
-        if (!wcId) {
-            setLiveStatus(null);
+        if (isWcOrder && wcNumericId && user) {
+            setLoading(true);
+            fetch(`http://localhost:5000/api/order/${wcNumericId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) { setServerOrder(null); return; }
+                    // 映射为组件期望的格式
+                    setServerOrder({
+                        id: orderId,
+                        wooCommerceId: data.id,
+                        wooCommerceNumber: data.number,
+                        date: data.dateCreated,
+                        items: (data.lineItems || []).map(item => ({
+                            id: item.id,
+                            name: item.name,
+                            qty: item.qty,
+                            price: parseFloat(item.price) || 0,
+                            image: item.image,
+                            deliveryDate: item.deliveryDate,
+                            deliveryMethod: item.deliveryMethod,
+                            giftMessage: item.giftMessage,
+                        })),
+                        total: parseFloat(data.total) || 0,
+                        status: data.status,
+                        delivery: {
+                            address: data.shipping?.address_1,
+                            suburb: data.shipping?.city,
+                            postcode: data.shipping?.postcode,
+                            phone: data.shipping?.phone,
+                        },
+                    });
+                    setLiveStatus(data);
+                })
+                .catch(() => setServerOrder(null))
+                .finally(() => setLoading(false));
             return;
         }
-        fetch(`http://localhost:5000/api/order/${wcId}`)
-            .then(res => res.json())
-            .then(data => {
-                // 已完成的订单不因后台操作改变状态
-                if (data.status === 'trash' && order.status === 'completed') return;
-                setLiveStatus(data);
-            })
-            .catch(() => { });
-    }, [orderId, user]);
+        // 本地订单：查 localStorage
+        if (!isWcOrder && user) {
+            const ord = getOrderById(user.email, orderId);
+            const wcId = ord?.wooCommerceId;
+            if (!wcId) { setLiveStatus(null); return; }
+            fetch(`http://localhost:5000/api/order/${wcId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'trash' && ord.status === 'completed') return;
+                    setLiveStatus(data);
+                })
+                .catch(() => { });
+        }
+    }, [orderId, user, isWcOrder, wcNumericId]);
 
     // 未登录
     if (!user) {
@@ -54,7 +96,19 @@ function OrderSummary() {
         );
     }
 
-    const order = getOrderById(user.email, orderId);
+    if (loading) {
+        return (
+            <FadeInUp as="section" className="order-summary-page">
+                <div className="container">
+                    <div className="order-summary-card" style={{ textAlign: 'center', padding: '60px' }}>
+                        <p>Loading order...</p>
+                    </div>
+                </div>
+            </FadeInUp>
+        );
+    }
+
+    const order = isWcOrder ? serverOrder : getOrderById(user.email, orderId);
     const wcId = order?.wooCommerceId;
 
     // 订单不存在

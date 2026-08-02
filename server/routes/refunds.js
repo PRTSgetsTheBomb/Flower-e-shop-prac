@@ -60,7 +60,7 @@ function writeRefunds(data) {
  * @returns {{ rate: number, label: string }}
  */
 function calcRefundRate(deliveryDate) {
-  if (!deliveryDate) return { rate: 0.5, label: '50% (no delivery date)' };
+  if (!deliveryDate) return { rate: 0, eligible: false, label: 'No delivery date — not eligible' };
   const delivery = new Date(deliveryDate);
   const today = new Date();
   // 比较日期（忽略时间）
@@ -68,9 +68,11 @@ function calcRefundRate(deliveryDate) {
   const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const diffDays = Math.floor((todayDay - deliveryDay) / (1000 * 60 * 60 * 24));
 
-  if (diffDays <= 0) return { rate: 1.0, label: '100% (same day)' };
-  if (diffDays === 1) return { rate: 0.7, label: '70% (next day)' };
-  return { rate: 0.5, label: '50% (2+ days)' };
+  if (diffDays < 0)  return { rate: 0, eligible: false, label: 'Not yet delivered' };
+  if (diffDays === 0) return { rate: 1.0, eligible: true, label: '100% (same day)' };
+  if (diffDays === 1) return { rate: 0.7, eligible: true, label: '70% (next day)' };
+  if (diffDays === 2) return { rate: 0.5, eligible: true, label: '50% (2 days)' };
+  return { rate: 0, eligible: false, label: `Not eligible (${diffDays} days)` };
 }
 
 // ---- 路由注册 ----
@@ -114,7 +116,10 @@ function registerRefundRoutes(app, wcApi, requireAdmin) {
         }
       }
 
-      const { rate, label } = calcRefundRate(deliveryDate);
+      const { rate, eligible, label } = calcRefundRate(deliveryDate);
+      if (!eligible) {
+        return res.status(400).json({ error: `Refund not available: ${label}` });
+      }
       const refundAmount = +(orderTotal * rate).toFixed(2);
 
       const refund = {
@@ -214,6 +219,77 @@ function registerRefundRoutes(app, wcApi, requireAdmin) {
       }
 
       res.json({ success: true, refund });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/refunds/analytics — 退款分析数据
+   * Query: startDate, endDate (YYYY-MM-DD, optional)
+   * 返回：原因分布（donut 图）、按月趋势、概览 KPI
+   */
+  app.get('/api/refunds/analytics', requireAdmin, (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      let refunds = readRefunds();
+
+      // 日期筛选
+      if (startDate) {
+        refunds = refunds.filter(r => r.createdAt >= startDate);
+      }
+      if (endDate) {
+        refunds = refunds.filter(r => r.createdAt <= endDate + 'T23:59:59.999Z');
+      }
+
+      // 退款原因统计（donut 图数据，仅统计 approved + pending，排除 rejected）
+      const reasonCounts = {};
+      refunds.forEach(r => {
+        if (r.status === 'rejected') return;
+        const reason = r.reason || 'Unknown';
+        reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+      });
+
+      // 状态统计
+      const statusCounts = { pending: 0, approved: 0, rejected: 0 };
+      refunds.forEach(r => {
+        if (statusCounts.hasOwnProperty(r.status)) statusCounts[r.status]++;
+      });
+
+      // 按月汇总
+      const monthlyMap = {};
+      refunds.forEach(r => {
+        const month = r.createdAt.slice(0, 7); // "YYYY-MM"
+        if (!monthlyMap[month]) monthlyMap[month] = { count: 0, amount: 0, approved: 0, rejected: 0 };
+        monthlyMap[month].count++;
+        monthlyMap[month].amount += r.refundAmount || 0;
+        if (r.status === 'approved') monthlyMap[month].approved++;
+        if (r.status === 'rejected') monthlyMap[month].rejected++;
+      });
+      const monthly = Object.entries(monthlyMap)
+        .map(([month, data]) => ({ month, ...data }))
+        .sort((a, b) => a.month.localeCompare(b.month));
+
+      // 概览
+      const totalAmount = refunds.reduce((sum, r) => sum + (r.refundAmount || 0), 0);
+      const approvedAmount = refunds
+        .filter(r => r.status === 'approved')
+        .reduce((sum, r) => sum + (r.refundAmount || 0), 0);
+
+      res.json({
+        reasonCounts,
+        statusCounts,
+        monthly,
+        overview: {
+          total: refunds.length,
+          pending: statusCounts.pending,
+          approved: statusCounts.approved,
+          rejected: statusCounts.rejected,
+          totalAmount: +totalAmount.toFixed(2),
+          approvedAmount: +approvedAmount.toFixed(2),
+        },
+        dateRange: { startDate: startDate || null, endDate: endDate || null },
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

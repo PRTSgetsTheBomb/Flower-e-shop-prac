@@ -63,14 +63,18 @@ export function addOrder(email, items, total, delivery) {
 }
 
 /**
- * 更新本地订单的 WooCommerce ID（同步后回写）
+ * 更新本地订单的 WooCommerce ID 和编号（同步后回写）
  */
-export function updateOrderWcId(email, localOrderId, wcOrderId) {
+export function updateOrderWcId(email, localOrderId, wcOrderId, wcOrderNumber) {
   const all = getAllOrders();
   const userOrders = all[email] || [];
   const idx = userOrders.findIndex((o) => o.id === localOrderId);
   if (idx !== -1) {
-    userOrders[idx] = { ...userOrders[idx], wooCommerceId: wcOrderId };
+    userOrders[idx] = {
+      ...userOrders[idx],
+      wooCommerceId: wcOrderId,
+      wooCommerceNumber: wcOrderNumber || String(wcOrderId),
+    };
     all[email] = userOrders;
     saveOrders(all);
   }

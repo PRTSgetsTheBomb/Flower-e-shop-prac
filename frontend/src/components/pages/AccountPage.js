@@ -103,6 +103,25 @@ function AccountPage() {
         return s;
     };
 
+    /**
+     * 计算退款资格和比例
+     * 当天(day0)=100%, 第2天(day1)=70%, 第3天(day2)=50%, 第4天起不允许
+     */
+    const getRefundEligibility = (order) => {
+        const deliveryDateStr = order.items?.[0]?.deliveryDate || order.date;
+        if (!deliveryDateStr) return { eligible: false, rate: 0, daysElapsed: -1, label: 'Unknown' };
+        const del = new Date(deliveryDateStr);
+        const now = new Date();
+        const delDay = new Date(del.getFullYear(), del.getMonth(), del.getDate());
+        const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const diff = Math.floor((nowDay - delDay) / (1000 * 60 * 60 * 24));
+        if (diff < 0)  return { eligible: false, rate: 0, daysElapsed: diff, label: 'Pending delivery' };
+        if (diff === 0) return { eligible: true,  rate: 1.0, daysElapsed: 0, label: '100% refund' };
+        if (diff === 1) return { eligible: true,  rate: 0.7, daysElapsed: 1, label: '70% refund' };
+        if (diff === 2) return { eligible: true,  rate: 0.5, daysElapsed: 2, label: '50% refund' };
+        return { eligible: false, rate: 0, daysElapsed: diff, label: 'Window closed' };
+    };
+
     // 提交退款申请 — 第一步：显示确认
     const handleRefundSubmit = (e) => {
         e.preventDefault();
@@ -137,7 +156,9 @@ function AccountPage() {
     const openRefundModal = (order) => {
         const wcStatus = liveStatuses[order.id]?.status || order.status;
         if (wcStatus !== 'completed') return;
-        setRefundModal({ orderId: order.id, wcOrderId: order.wooCommerceId, order });
+        const eligibility = getRefundEligibility(order);
+        if (!eligibility.eligible) return;
+        setRefundModal({ orderId: order.id, wcOrderId: order.wooCommerceId, order, eligibility });
         setRefundReason('');
         setRefundMessage('');
         setRefundImages([]);
@@ -177,7 +198,7 @@ function AccountPage() {
                                         return (
                                             <div key={order.id} className="order-card" onClick={() => navigate(`/order/${order.id}`)}>
                                                 <div className="order-header">
-                                                    <span className="order-id">{liveStatus?.number ? `#${liveStatus.number}` : order.id}</span>
+                                                    <span className="order-id">#{order.wooCommerceNumber || liveStatus?.number || order.id.replace('ORD-', '')}</span>
                                                     <span className={`order-status-badge status-${currentStatus}`}>
                                                         {statusLabel(currentStatus, order)}
                                                     </span>
@@ -208,9 +229,15 @@ function AccountPage() {
                                                     </p>
                                                 )}
                                                 <div onClick={(e) => e.stopPropagation()}>
-                                                    {currentStatus === 'completed' && (
-                                                        <button className="btn-refund-request" onClick={() => openRefundModal(order)}>Request Refund</button>
-                                                    )}
+                                                    {currentStatus === 'completed' && (() => {
+                                                        const elig = getRefundEligibility(order);
+                                                        if (!elig.eligible) return null;
+                                                        return (
+                                                            <button className="btn-refund-request" onClick={() => openRefundModal(order)}>
+                                                                Request Refund ({elig.label})
+                                                            </button>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                         );
@@ -372,6 +399,14 @@ function AccountPage() {
                             ) : (
                                 <form onSubmit={handleRefundSubmit}>
                                     <p className="refund-order-id">Order: {refundModal.orderId}</p>
+                                    {refundModal.eligibility && (
+                                        <p className="refund-rate-info">
+                                            Refund rate: <strong>{refundModal.eligibility.label}</strong>
+                                            {refundModal.eligibility.rate < 1 && (
+                                                <span> (estimated: ${(refundModal.order.total * refundModal.eligibility.rate).toFixed(2)})</span>
+                                            )}
+                                        </p>
+                                    )}
                                     <div className="form-group">
                                         <label>Reason *</label>
                                         <select value={refundReason} onChange={(e) => setRefundReason(e.target.value)} required>

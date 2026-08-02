@@ -253,8 +253,8 @@ function CheckoutPage() {
         }).then(async (res) => {
             if (res.ok) {
                 const data = await res.json();
-                updateOrderWcId(email, order.id, data.orderId);
-                console.log('[Order] Synced to WooCommerce, ID:', data.orderId);
+                updateOrderWcId(email, order.id, data.orderId, data.orderNumber);
+                console.log('[Order] Synced to WooCommerce, #' + data.orderNumber);
             } else {
                 console.warn('[Order] Sync failed:', res.status);
             }
@@ -287,7 +287,7 @@ function CheckoutPage() {
                 <h1 className="checkout-title">Checkout</h1>
                 <Elements stripe={stripePromise}>
                     <form className="checkout-layout" onSubmit={handleSubmit}>
-                        {/* 左侧：表�?*/}
+                        {/* 左侧：表格*/}
                         <div className="checkout-form">
                             <div className="form-section">
                                 <h2>Contact</h2>
@@ -449,7 +449,7 @@ function CheckoutPage() {
                             )}
                         </div>
 
-                        {/* 右侧：订单摘�?*/}
+                        {/* 右侧：订单摘要*/}
                         <div className="checkout-summary">
                             <h2>Order Summary</h2>
                             {cart.map((item) => (
@@ -508,7 +508,7 @@ function CheckoutPage() {
                                 <span>${total.toFixed(2)}</span>
                             </div>
 
-                            {/* 信用卡支�?*/}
+                            {/* 信用卡支付*/}
                             <StripePayment onStripeReady={onStripeReady} />
                             {cardError && <p className="stripe-error">{cardError}</p>}
 

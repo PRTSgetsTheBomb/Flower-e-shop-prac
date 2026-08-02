@@ -815,6 +815,16 @@
   margin-bottom: 16px;
 }
 
+.refund-rate-info {
+  font-size: 0.95em;
+  color: #e74c3c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
 .refund-modal select,
 .refund-modal textarea {
   width: 100%;

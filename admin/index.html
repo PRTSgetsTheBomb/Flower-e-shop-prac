@@ -379,11 +379,60 @@
     <section id="tab-refunds" style="display:none;">
       <div class="section-toolbar">
         <button class="btn-back" onclick="hideRefunds()">&larr; Back to Dashboard</button>
-        <h2>Refund Requests</h2>
+        <h2>Refund Analytics</h2>
         <span class="toolbar-hint" id="refunds-hint"></span>
       </div>
 
-      <h3 style="margin:20px 0 12px;color:#e74c3c;">Pending</h3>
+      <!-- 日期筛选 -->
+      <div class="date-filter-bar" style="margin-bottom:20px;">
+        <div class="date-filter-row">
+          <input type="date" id="refundFilterStart">
+          <span class="filter-sep">—</span>
+          <input type="date" id="refundFilterEnd">
+          <button id="btnRefundThisMonth">This Month</button>
+          <button id="btnRefundThisYear">This Year</button>
+          <button id="btnRefundAll">All</button>
+          <span class="filter-label" id="refundFilterLabel"></span>
+        </div>
+      </div>
+
+      <!-- KPI -->
+      <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);">
+        <div class="kpi-card">
+          <div class="kpi-label">Total Refunds</div>
+          <div class="kpi-value" id="kpi-refundTotal">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Approved Amount</div>
+          <div class="kpi-value" id="kpi-refundApproved">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Approved</div>
+          <div class="kpi-value" id="kpi-refundAppCount">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Rejected</div>
+          <div class="kpi-value" id="kpi-refundRejCount">—</div>
+        </div>
+      </div>
+
+      <!-- 图表 -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <h3>Refund Reasons</h3>
+          <div class="chart-wrapper" style="max-height:320px;">
+            <canvas id="chartRefundReasons"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3>Monthly Refund Rate</h3>
+          <div class="chart-wrapper" style="max-height:320px;">
+            <canvas id="chartRefundMonthly"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin:30px 0 12px;color:#e74c3c;">Pending</h3>
       <div class="table-card refunds-table-wrap">
         <table id="refundsPendingTable">
           <thead><tr><th>ID</th><th>Order</th><th>Customer</th><th>Reason</th><th>Order Total</th><th>Refund Rate</th><th>Refund Amount</th><th>Images</th><th>Date</th><th>Actions</th></tr></thead>
